@@ -1,3 +1,4 @@
+import React from "react"
 import { useState, useCallback } from 'react'
 import { useAIStore } from '../../stores/aiStore'
 import { useEditorStore } from '../../stores/editorStore'
@@ -10,7 +11,7 @@ const STYLE_SUGGESTIONS = [
   'cartoon', 'anime', 'pixel art', 'pencil sketch', '3D render', 'pop art'
 ]
 
-export function ImageGenDialog({ onClose }: { onClose: () => void }): JSX.Element {
+export function ImageGenDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const selectedCardId = useEditorStore((s) => s.selectedCardId)
   const updateCard = useEditorStore((s) => s.updateCard)
@@ -66,7 +67,7 @@ export function ImageGenDialog({ onClose }: { onClose: () => void }): JSX.Elemen
       rotation: 0, opacity: 1, visible: true, locked: false,
       src: preview,
       fit: 'cover',
-      filters: { brightness: 0, contrast: 0, saturation: 0, blur: 0, grayscale: false }
+      filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0, grayscale: false }
     }
     addLayer(layer)
     onClose()

@@ -1,3 +1,4 @@
+import React from "react"
 import { useState, useCallback, useRef, useEffect } from 'react'
 
 interface Props {
@@ -13,7 +14,7 @@ const PRESET_COLORS = [
   '#1a1a2e', '#16213e', '#0f3460', '#e94560', '#533483', '#2b2d42'
 ]
 
-export function ColorPicker({ color, onChange, label }: Props): JSX.Element {
+export function ColorPicker({ color, onChange, label }: Props): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [hexInput, setHexInput] = useState(color)
   const ref = useRef<HTMLDivElement>(null)

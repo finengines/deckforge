@@ -107,7 +107,9 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('image:get-path', async (_event, filename: string) => {
     const imagesDir = getImagesDir()
-    const filePath = path.join(imagesDir, filename)
+    // Sanitize filename to prevent path traversal
+    const safeName = path.basename(filename)
+    const filePath = path.join(imagesDir, safeName)
     if (fs.existsSync(filePath)) {
       return { success: true, data: filePath }
     }

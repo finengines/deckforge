@@ -1,3 +1,4 @@
+import React from "react"
 import { useRef, useCallback, useEffect, useState } from 'react'
 import { Stage, Layer, Rect, Text, Line, Image as KonvaImage, Transformer } from 'react-konva'
 import type Konva from 'konva'
@@ -18,7 +19,7 @@ function ImageLayerNode({
 }: {
   layer: ImageLayer
   commonProps: Record<string, unknown>
-}): JSX.Element {
+}): React.JSX.Element {
   const [image, status] = useImage(layer.src)
 
   if (status === 'loaded' && image) {
@@ -35,7 +36,7 @@ function ImageLayerNode({
   )
 }
 
-export function Canvas(): JSX.Element {
+export function Canvas(): React.JSX.Element {
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
 
@@ -64,7 +65,9 @@ export function Canvas(): JSX.Element {
   const bleed = dims.bleed * SCREEN_SCALE
 
   const template = editingSide === 'front' ? deck.frontTemplate : deck.backTemplate
-  const layers = template.frontLayers
+  const layers = editingSide === 'back' && template.backLayers !== null
+    ? template.backLayers
+    : template.frontLayers
 
   // Update transformer when selection changes
   useEffect(() => {
@@ -194,7 +197,7 @@ export function Canvas(): JSX.Element {
     [updateLayer]
   )
 
-  const renderLayer = (layer: LayerType): JSX.Element | null => {
+  const renderLayer = (layer: LayerType): React.JSX.Element | null => {
     if (!layer.visible) return null
 
     const commonProps = {

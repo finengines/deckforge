@@ -1,3 +1,4 @@
+import React from "react"
 import { useState, useCallback } from 'react'
 import { useAIStore } from '../../stores/aiStore'
 import { useEditorStore } from '../../stores/editorStore'
@@ -13,7 +14,7 @@ interface BatchOptions {
   stats: boolean
 }
 
-export function BatchGenerate({ onClose }: { onClose: () => void }): JSX.Element {
+export function BatchGenerate({ onClose }: { onClose: () => void }): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const updateCard = useEditorStore((s) => s.updateCard)
   const providers = useAIStore((s) => s.providers)

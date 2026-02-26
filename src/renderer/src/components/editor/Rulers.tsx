@@ -1,3 +1,4 @@
+import React from "react"
 import { useMemo } from 'react'
 
 interface RulersProps {
@@ -24,7 +25,7 @@ export function Rulers({
   screenScale,
   stageWidth,
   stageHeight
-}: RulersProps): JSX.Element {
+}: RulersProps): React.JSX.Element {
   // Card origin in stage pixels
   const originX = (stageWidth - cardWidth * screenScale * zoom) / 2 + panOffsetX
   const originY = (stageHeight - cardHeight * screenScale * zoom) / 2 + panOffsetY

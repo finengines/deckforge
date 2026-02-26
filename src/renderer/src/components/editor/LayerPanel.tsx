@@ -1,3 +1,4 @@
+import React from "react"
 import { useEditorStore } from '../../stores/editorStore'
 import type { Layer } from '../../types'
 
@@ -9,7 +10,7 @@ const layerIcons: Record<string, string> = {
   component: '🧩'
 }
 
-export function LayerPanel(): JSX.Element {
+export function LayerPanel(): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const editingSide = useEditorStore((s) => s.editingSide)
   const selectedLayerIds = useEditorStore((s) => s.selectedLayerIds)
@@ -21,7 +22,10 @@ export function LayerPanel(): JSX.Element {
   if (!deck) return <div className="panel" />
 
   const template = editingSide === 'front' ? deck.frontTemplate : deck.backTemplate
-  const layers = [...template.frontLayers].reverse() // Show top layers first
+  const srcLayers = editingSide === 'back' && template.backLayers !== null
+    ? template.backLayers
+    : template.frontLayers
+  const layers = [...srcLayers].reverse() // Show top layers first
 
   const handleAddText = (): void => {
     addLayer({

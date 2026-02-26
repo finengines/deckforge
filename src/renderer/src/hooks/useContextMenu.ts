@@ -37,12 +37,14 @@ export function useContextMenu(): {
 
   useEffect(() => {
     const handler = (): void => hideMenu()
-    document.addEventListener('click', handler)
-    document.addEventListener('keydown', (e) => {
+    const keyHandler = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') hideMenu()
-    })
+    }
+    document.addEventListener('click', handler)
+    document.addEventListener('keydown', keyHandler)
     return () => {
       document.removeEventListener('click', handler)
+      document.removeEventListener('keydown', keyHandler)
     }
   }, [hideMenu])
 

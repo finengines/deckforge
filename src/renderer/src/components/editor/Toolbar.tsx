@@ -1,3 +1,4 @@
+import React from "react"
 import { useEditorStore } from '../../stores/editorStore'
 import type { EditorView, EditorMode } from '../../types'
 
@@ -20,7 +21,7 @@ const tools: { id: EditorMode; label: string; icon: string; shortcut: string }[]
   { id: 'pan', label: 'Pan', icon: '✋', shortcut: 'H' }
 ]
 
-export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): JSX.Element {
+export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): React.JSX.Element {
   const view = useEditorStore((s) => s.view)
   const mode = useEditorStore((s) => s.mode)
   const zoom = useEditorStore((s) => s.zoom)

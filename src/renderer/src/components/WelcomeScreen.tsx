@@ -1,3 +1,4 @@
+import React from "react"
 import { useEffect, useState } from 'react'
 import { useEditorStore } from '../stores/editorStore'
 
@@ -10,7 +11,7 @@ interface DeckSummary {
   updatedAt: string
 }
 
-export function WelcomeScreen(): JSX.Element {
+export function WelcomeScreen(): React.JSX.Element {
   const createDeck = useEditorStore((s) => s.createDeck)
   const loadDeck = useEditorStore((s) => s.loadDeck)
   const [recentDecks, setRecentDecks] = useState<DeckSummary[]>([])

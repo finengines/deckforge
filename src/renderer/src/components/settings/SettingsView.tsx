@@ -1,8 +1,9 @@
+import React from "react"
 import { useAIStore } from '../../stores/aiStore'
 import { useEditorStore } from '../../stores/editorStore'
 import type { AIProvider } from '../../types'
 
-export function SettingsView(): JSX.Element {
+export function SettingsView(): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const updateDimensions = useEditorStore((s) => s.updateDimensions)
   const updateTheme = useEditorStore((s) => s.updateTheme)

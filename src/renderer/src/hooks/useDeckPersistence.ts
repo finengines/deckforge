@@ -5,7 +5,7 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 export function useDeckPersistence(): { saveStatus: SaveStatus; saveDeck: () => Promise<void>; loadDeck: (id: string) => Promise<void> } {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>()
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const currentDeck = useEditorStore((s) => s.currentDeck)
   const loadDeckAction = useEditorStore((s) => s.loadDeck)
 

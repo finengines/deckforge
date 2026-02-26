@@ -1,3 +1,4 @@
+import React from "react"
 import { useState, useCallback } from 'react'
 import { useAIStore } from '../../stores/aiStore'
 import { useEditorStore } from '../../stores/editorStore'
@@ -18,7 +19,7 @@ function ProviderSelect({
   task: AITask
   value: string
   onChange: (id: string) => void
-}): JSX.Element {
+}): React.JSX.Element {
   const providers = useAIStore((s) => s.providers.filter((p) => p.enabled))
   return (
     <select className="input" value={value} onChange={(e) => onChange(e.target.value)} style={{ fontSize: 11 }}>
@@ -40,7 +41,7 @@ function Section({
   title: string
   icon: string
   children: React.ReactNode
-}): JSX.Element {
+}): React.JSX.Element {
   const [open, setOpen] = useState(true)
   return (
     <div style={{ marginBottom: 12 }}>
@@ -59,7 +60,7 @@ function Section({
   )
 }
 
-export function AIPanel(): JSX.Element {
+export function AIPanel(): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const selectedCardId = useEditorStore((s) => s.selectedCardId)
   const updateCard = useEditorStore((s) => s.updateCard)

@@ -1,18 +1,21 @@
-appId: com.electron.app
-productName: deckforge
+appId: com.deckforge.app
+productName: DeckForge
 directories:
   buildResources: build
 files:
   - '!**/.vscode/*'
   - '!src/*'
+  - '!e2e/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!vitest.config.ts'
+  - '!playwright.config.ts'
 asarUnpack:
   - resources/**
 win:
-  executableName: deckforge
+  executableName: DeckForge
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -21,23 +24,20 @@ nsis:
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+    - NSDocumentsFolderUsageDescription: DeckForge needs access to your Documents folder to save and load card decks.
+    - NSDownloadsFolderUsageDescription: DeckForge needs access to Downloads to export PDF files.
   notarize: false
+  target:
+    - dmg
+    - zip
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: DeckForge-${version}.${ext}
 linux:
   target:
     - AppImage
-    - snap
     - deb
-  maintainer: electronjs.org
-  category: Utility
+  maintainer: github.com/finengines
+  category: Graphics
 appImage:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: DeckForge-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates

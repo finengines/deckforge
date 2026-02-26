@@ -54,7 +54,9 @@ export function useKeyboardShortcuts(): void {
         e.preventDefault()
         if (!currentDeck) return
         const template = editingSide === 'front' ? currentDeck.frontTemplate : currentDeck.backTemplate
-        const layers = template.frontLayers
+        const layers = editingSide === 'back' && template.backLayers !== null
+          ? template.backLayers
+          : template.frontLayers
         clipboardRef.current = layers.filter((l) => selectedLayerIds.includes(l.id))
         return
       }
@@ -83,8 +85,11 @@ export function useKeyboardShortcuts(): void {
         const dy = e.key === 'ArrowUp' ? -amount : e.key === 'ArrowDown' ? amount : 0
         if (!currentDeck) return
         const template = editingSide === 'front' ? currentDeck.frontTemplate : currentDeck.backTemplate
+        const nudgeLayers = editingSide === 'back' && template.backLayers !== null
+          ? template.backLayers
+          : template.frontLayers
         for (const id of selectedLayerIds) {
-          const layer = template.frontLayers.find((l) => l.id === id)
+          const layer = nudgeLayers.find((l) => l.id === id)
           if (layer) {
             store.updateLayer(id, { x: layer.x + dx, y: layer.y + dy })
           }

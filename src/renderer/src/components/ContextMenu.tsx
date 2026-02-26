@@ -1,3 +1,4 @@
+import React from "react"
 import type { ContextMenuItem } from '../hooks/useContextMenu'
 
 interface Props {
@@ -8,7 +9,7 @@ interface Props {
   onClose: () => void
 }
 
-export function ContextMenu({ visible, x, y, items, onClose }: Props): JSX.Element | null {
+export function ContextMenu({ visible, x, y, items, onClose }: Props): React.JSX.Element | null {
   if (!visible) return null
 
   return (

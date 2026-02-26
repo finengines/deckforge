@@ -1,6 +1,7 @@
-import { Group, Rect, Text, Image as KonvaImage } from 'react-konva'
+import React from "react"
+import { Group, Rect, Text } from 'react-konva'
 import { useEditorStore } from '../../stores/editorStore'
-import type { ComponentLayer, ComponentDefinition, ComponentSlot, CardData, TextLayer } from '../../types'
+import type { ComponentLayer, ComponentSlot, CardData, TextLayer } from '../../types'
 
 const SCREEN_SCALE = 3
 
@@ -13,7 +14,7 @@ interface Props {
  * Renders a ComponentLayer on the Konva canvas.
  * Resolves slot values from current card data and component overrides.
  */
-export function ComponentLayerRenderer({ layer, cardData }: Props): JSX.Element | null {
+export function ComponentLayerRenderer({ layer, cardData }: Props): React.JSX.Element | null {
   const deck = useEditorStore((s) => s.currentDeck)
   if (!deck) return null
 

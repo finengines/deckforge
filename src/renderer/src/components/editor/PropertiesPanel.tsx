@@ -1,7 +1,8 @@
+import React from "react"
 import { useEditorStore } from '../../stores/editorStore'
 import type { Layer, TextLayer, ShapeLayer } from '../../types'
 
-export function PropertiesPanel(): JSX.Element {
+export function PropertiesPanel(): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const editingSide = useEditorStore((s) => s.editingSide)
   const selectedLayerIds = useEditorStore((s) => s.selectedLayerIds)
@@ -10,7 +11,9 @@ export function PropertiesPanel(): JSX.Element {
   if (!deck) return <div className="panel" />
 
   const template = editingSide === 'front' ? deck.frontTemplate : deck.backTemplate
-  const allLayers = template.frontLayers
+  const allLayers = editingSide === 'back' && template.backLayers !== null
+    ? template.backLayers
+    : template.frontLayers
 
   const findLayer = (layers: Layer[], id: string): Layer | undefined => {
     for (const l of layers) {
@@ -169,7 +172,7 @@ function TextProperties({
 }: {
   layer: TextLayer
   onUpdate: (u: Partial<TextLayer>) => void
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <>
       <div className="form-group">
@@ -252,7 +255,7 @@ function ShapeProperties({
 }: {
   layer: ShapeLayer
   onUpdate: (u: Partial<ShapeLayer>) => void
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <>
       <div className="form-group">

@@ -4,7 +4,7 @@
  */
 
 import Konva from 'konva'
-import type { Deck, CardData, Layer, TextLayer, ShapeLayer, ImageLayer, CardDimensions } from '../types'
+import type { Deck, CardData, Layer, TextLayer, ShapeLayer, ImageLayer } from '../types'
 
 /** Convert mm to pixels at given DPI */
 function mmToPx(mm: number, dpi: number): number {

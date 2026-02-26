@@ -7,8 +7,9 @@
     "src/preload/*.d.ts"
   ],
   "compilerOptions": {
-    "composite": true,
+    "composite": false,
     "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "baseUrl": ".",
     "paths": {
       "@renderer/*": [

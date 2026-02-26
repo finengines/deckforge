@@ -1,3 +1,4 @@
+import React from "react"
 import { useState, useCallback } from 'react'
 import { usePrintStore } from '../../stores/printStore'
 import { useEditorStore } from '../../stores/editorStore'
@@ -14,10 +15,12 @@ function downloadBlob(blob: Blob, filename: string): void {
 }
 
 function downloadBytes(bytes: Uint8Array, filename: string): void {
-  downloadBlob(new Blob([bytes], { type: 'application/pdf' }), filename)
+  // Copy to a plain ArrayBuffer to avoid SharedArrayBuffer TS issues
+  const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+  downloadBlob(new Blob([ab], { type: 'application/pdf' }), filename)
 }
 
-export function ExportView(): JSX.Element {
+export function ExportView(): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const settings = usePrintStore()
 

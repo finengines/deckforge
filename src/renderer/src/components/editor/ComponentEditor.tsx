@@ -1,3 +1,4 @@
+import React from "react"
 import { useState, useCallback, useRef } from 'react'
 import { v4 as uuid } from 'uuid'
 import { useEditorStore } from '../../stores/editorStore'
@@ -13,7 +14,7 @@ interface Props {
 
 const SLOT_COLORS = ['#e94560', '#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#00BCD4']
 
-export function ComponentEditor({ component, onClose, onSave }: Props): JSX.Element {
+export function ComponentEditor({ component, onClose, onSave }: Props): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
 
   const [name, setName] = useState(component?.name ?? '')
@@ -215,7 +216,7 @@ export function ComponentEditor({ component, onClose, onSave }: Props): JSX.Elem
             <button onClick={addSlot} style={btnStyle}>+ Add Slot</button>
           </div>
 
-          {slots.map((slot, i) => (
+          {slots.map((slot) => (
             <div
               key={slot.id}
               style={{
@@ -289,7 +290,7 @@ function PsdLayerMapping({
   layer: PsdLayerInfo
   onMap: (name: string, type: 'text' | 'image' | 'number', slotName: string) => void
   mappings: Record<string, { type: 'text' | 'image' | 'number'; slotName: string }>
-}): JSX.Element {
+}): React.JSX.Element {
   const mapping = mappings[layer.name]
   return (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4, fontSize: 12 }}>

@@ -1,3 +1,4 @@
+import React from "react"
 import { useCallback } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
 import { builtInTemplates } from '../../lib/templates'
@@ -19,7 +20,7 @@ const TEMPLATE_ICONS: Record<string, string> = {
   'builtin-trading-card': '⚔️'
 }
 
-export function TemplatePicker(): JSX.Element {
+export function TemplatePicker(): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const loadDeck = useEditorStore((s) => s.loadDeck)
 

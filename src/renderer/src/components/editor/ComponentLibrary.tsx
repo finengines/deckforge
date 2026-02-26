@@ -1,10 +1,11 @@
+import React from "react"
 import { useState, useCallback } from 'react'
 import { v4 as uuid } from 'uuid'
 import { useEditorStore } from '../../stores/editorStore'
 import { ComponentEditor } from './ComponentEditor'
 import type { ComponentDefinition, ComponentLayer } from '../../types'
 
-export function ComponentLibrary(): JSX.Element {
+export function ComponentLibrary(): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const addLayer = useEditorStore((s) => s.addLayer)
   const [editingComponent, setEditingComponent] = useState<ComponentDefinition | null | undefined>(undefined)

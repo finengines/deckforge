@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
+import type { WritableDraft as _WD } from 'immer' // ensure immer types are resolvable
 import { temporal } from 'zundo'
 import { v4 as uuid } from 'uuid'
 import type {
@@ -272,7 +273,10 @@ export const useEditorStore = create<EditorStore>()(
             s.editingSide === 'front'
               ? s.currentDeck.frontTemplate
               : s.currentDeck.backTemplate
-          template.frontLayers.push(layer)
+          const layers = s.editingSide === 'back' && template.backLayers !== null
+            ? template.backLayers
+            : template.frontLayers
+          layers.push(layer)
           s.selectedLayerIds = [layer.id]
         }),
 
@@ -283,8 +287,11 @@ export const useEditorStore = create<EditorStore>()(
             s.editingSide === 'front'
               ? s.currentDeck.frontTemplate
               : s.currentDeck.backTemplate
-          const findAndUpdate = (layers: Layer[]): boolean => {
-            for (const layer of layers) {
+          const layers = s.editingSide === 'back' && template.backLayers !== null
+            ? template.backLayers
+            : template.frontLayers
+          const findAndUpdate = (list: Layer[]): boolean => {
+            for (const layer of list) {
               if (layer.id === id) {
                 Object.assign(layer, updates)
                 return true
@@ -293,7 +300,7 @@ export const useEditorStore = create<EditorStore>()(
             }
             return false
           }
-          findAndUpdate(template.frontLayers)
+          findAndUpdate(layers)
         }),
 
       removeLayer: (id) =>
@@ -303,13 +310,18 @@ export const useEditorStore = create<EditorStore>()(
             s.editingSide === 'front'
               ? s.currentDeck.frontTemplate
               : s.currentDeck.backTemplate
-          const removeFromList = (layers: Layer[]): Layer[] =>
-            layers
+          const useBack = s.editingSide === 'back' && template.backLayers !== null
+          const removeFromList = (list: Layer[]): Layer[] =>
+            list
               .filter((l) => l.id !== id)
               .map((l) =>
                 l.type === 'group' ? { ...l, children: removeFromList(l.children) } : l
               )
-          template.frontLayers = removeFromList(template.frontLayers)
+          if (useBack) {
+            template.backLayers = removeFromList(template.backLayers!)
+          } else {
+            template.frontLayers = removeFromList(template.frontLayers)
+          }
           s.selectedLayerIds = s.selectedLayerIds.filter((lid) => lid !== id)
         }),
 
@@ -325,8 +337,15 @@ export const useEditorStore = create<EditorStore>()(
             s.editingSide === 'front'
               ? s.currentDeck.frontTemplate
               : s.currentDeck.backTemplate
-          const map = new Map(template.frontLayers.map((l) => [l.id, l]))
-          template.frontLayers = ids.map((id) => map.get(id)!).filter(Boolean)
+          const useBack = s.editingSide === 'back' && template.backLayers !== null
+          const layers = useBack ? template.backLayers! : template.frontLayers
+          const map = new Map(layers.map((l) => [l.id, l]))
+          const reordered = ids.map((id) => map.get(id)!).filter(Boolean)
+          if (useBack) {
+            template.backLayers = reordered
+          } else {
+            template.frontLayers = reordered
+          }
         }),
 
       duplicateLayer: (id) =>
@@ -336,7 +355,10 @@ export const useEditorStore = create<EditorStore>()(
             s.editingSide === 'front'
               ? s.currentDeck.frontTemplate
               : s.currentDeck.backTemplate
-          const layer = template.frontLayers.find((l) => l.id === id)
+          const layers = s.editingSide === 'back' && template.backLayers !== null
+            ? template.backLayers
+            : template.frontLayers
+          const layer = layers.find((l) => l.id === id)
           if (!layer) return
           const clone: Layer = {
             ...JSON.parse(JSON.stringify(layer)),
@@ -345,7 +367,7 @@ export const useEditorStore = create<EditorStore>()(
             x: layer.x + 10,
             y: layer.y + 10
           }
-          template.frontLayers.push(clone)
+          layers.push(clone)
           s.selectedLayerIds = [clone.id]
         }),
 

@@ -1,7 +1,9 @@
-node_modules
-dist
-out
+node_modules/
+out/
+dist/
+*.log
 .DS_Store
-.eslintcache
-*.log*
-node_modules/\nout/\ndist/\n*.log
+Thumbs.db
+*.tsbuildinfo
+test-results/
+playwright-report/

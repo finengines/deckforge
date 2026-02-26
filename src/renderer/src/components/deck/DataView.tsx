@@ -1,7 +1,8 @@
+import React from "react"
 import { useEditorStore } from '../../stores/editorStore'
-import type { CardCategory } from '../../types'
+// import type { CardCategory } from '../../types'
 
-export function DataView(): JSX.Element {
+export function DataView(): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const updateCard = useEditorStore((s) => s.updateCard)
   const addCard = useEditorStore((s) => s.addCard)

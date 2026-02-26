@@ -1,3 +1,4 @@
+import React from "react"
 import { useEditorStore } from './stores/editorStore'
 import { useDeckPersistence } from './hooks/useDeckPersistence'
 import { Toolbar } from './components/editor/Toolbar'
@@ -11,7 +12,7 @@ import { SettingsView } from './components/settings/SettingsView'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import './assets/app.css'
 
-function App(): JSX.Element {
+function App(): React.JSX.Element {
   const view = useEditorStore((s) => s.view)
   const currentDeck = useEditorStore((s) => s.currentDeck)
   const { saveStatus } = useDeckPersistence()

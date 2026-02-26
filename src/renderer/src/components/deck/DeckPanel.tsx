@@ -1,6 +1,7 @@
+import React from "react"
 import { useEditorStore } from '../../stores/editorStore'
 
-export function DeckPanel(): JSX.Element {
+export function DeckPanel(): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const selectedCardId = useEditorStore((s) => s.selectedCardId)
   const selectCard = useEditorStore((s) => s.selectCard)
