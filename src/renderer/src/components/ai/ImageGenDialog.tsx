@@ -6,10 +6,14 @@ import { generateImage } from '../../lib/ai'
 import { v4 as uuid } from 'uuid'
 import type { ImageLayer } from '../../types'
 
-const STYLE_SUGGESTIONS = [
-  'photorealistic', 'digital art', 'watercolor painting', 'oil painting',
-  'cartoon', 'anime', 'pixel art', 'pencil sketch', '3D render', 'pop art'
-]
+const ART_STYLE_PRESETS = [
+  { label: 'Trading Card Art', suffix: ', detailed fantasy trading card illustration, vibrant colors' },
+  { label: 'Pixel Art', suffix: ', pixel art style, retro 16-bit game graphics' },
+  { label: 'Watercolor', suffix: ', watercolor painting style, soft edges, paper texture' },
+  { label: 'Comic Book', suffix: ', comic book illustration style, bold outlines, halftone dots' },
+  { label: 'Photo-realistic', suffix: ', photorealistic, studio lighting, high detail' },
+  { label: 'Anime', suffix: ', anime art style, Japanese animation, cel shading' }
+] as const
 
 export function ImageGenDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
@@ -18,9 +22,12 @@ export function ImageGenDialog({ onClose }: { onClose: () => void }): React.JSX.
   const addLayer = useEditorStore((s) => s.addLayer)
   const providers = useAIStore((s) => s.providers)
   const defaults = useAIStore((s) => s.defaults)
+  const lastStylePreset = useAIStore((s) => s.lastStylePreset)
+  const setLastStylePreset = useAIStore((s) => s.setLastStylePreset)
   const { generating, setGenerating } = useAIStore()
 
   const [prompt, setPrompt] = useState('')
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(lastStylePreset)
   const [providerId, setProviderId] = useState(defaults.image)
   const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -28,14 +35,30 @@ export function ImageGenDialog({ onClose }: { onClose: () => void }): React.JSX.
   const selectedCard = deck?.cards.find((c) => c.id === selectedCardId)
   const enabledProviders = providers.filter((p) => p.enabled && p.imageModel)
 
+  const handlePresetToggle = (label: string): void => {
+    if (selectedPreset === label) {
+      setSelectedPreset(null)
+      setLastStylePreset(null)
+    } else {
+      setSelectedPreset(label)
+      setLastStylePreset(label)
+    }
+  }
+
+  const getFullPrompt = (): string => {
+    const preset = ART_STYLE_PRESETS.find((p) => p.label === selectedPreset)
+    return preset ? prompt + preset.suffix : prompt
+  }
+
   const handleGenerate = useCallback(async () => {
     const config = providers.find((p) => p.id === providerId)
-    if (!config || !prompt) return
+    const fullPrompt = getFullPrompt()
+    if (!config || !fullPrompt) return
     setGenerating(true, 'Generating image…')
     setError('')
     setPreview(null)
     try {
-      const buffers = await generateImage(config, { prompt })
+      const buffers = await generateImage(config, { prompt: fullPrompt })
       if (buffers.length > 0) {
         const b64 = buffers[0] instanceof Buffer
           ? buffers[0].toString('base64')
@@ -47,15 +70,15 @@ export function ImageGenDialog({ onClose }: { onClose: () => void }): React.JSX.
     } finally {
       setGenerating(false)
     }
-  }, [providerId, prompt, providers])
+  }, [providerId, prompt, selectedPreset, providers])
 
-  const applyAsCardImage = () => {
+  const applyAsCardImage = (): void => {
     if (!preview || !selectedCard) return
     updateCard(selectedCard.id, { image: preview })
     onClose()
   }
 
-  const applyAsLayer = () => {
+  const applyAsLayer = (): void => {
     if (!preview || !deck) return
     const layer: ImageLayer = {
       id: uuid(),
@@ -94,24 +117,35 @@ export function ImageGenDialog({ onClose }: { onClose: () => void }): React.JSX.
           </select>
         </div>
 
+        {/* Art Style Presets */}
+        <div style={{ marginBottom: 12 }}>
+          <label className="input-label" style={{ marginBottom: 6, display: 'block' }}>Art Style</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {ART_STYLE_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                className="btn btn-sm"
+                style={{
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  background: selectedPreset === preset.label ? 'var(--accent)' : undefined,
+                  color: selectedPreset === preset.label ? '#fff' : undefined,
+                  borderColor: selectedPreset === preset.label ? 'var(--accent)' : undefined
+                }}
+                onClick={() => handlePresetToggle(preset.label)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="form-group">
           <label className="input-label">Prompt</label>
           <textarea className="input" rows={3} value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="A majestic dragon breathing fire over a medieval castle…"
             style={{ resize: 'vertical' }} />
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label className="input-label" style={{ marginBottom: 4 }}>Style Suggestions</label>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {STYLE_SUGGESTIONS.map((s) => (
-              <button key={s} className="btn btn-sm" style={{ fontSize: 10, padding: '2px 6px' }}
-                onClick={() => setPrompt((p) => `${p}, ${s} style`.trim())}>
-                {s}
-              </button>
-            ))}
-          </div>
         </div>
 
         <button className="btn btn-primary" onClick={handleGenerate}

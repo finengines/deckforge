@@ -16,7 +16,7 @@ function PropSection({ title, children, defaultOpen = true }: { title: string; c
   )
 }
 
-export function PropertiesPanel(): React.JSX.Element {
+export const PropertiesPanel = React.memo(function PropertiesPanel(): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const editingSide = useEditorStore((s) => s.editingSide)
   const selectedLayerIds = useEditorStore((s) => s.selectedLayerIds)
@@ -177,7 +177,7 @@ export function PropertiesPanel(): React.JSX.Element {
       </div>
     </div>
   )
-}
+})
 
 function TextProperties({
   layer,

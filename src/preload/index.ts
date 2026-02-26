@@ -16,7 +16,17 @@ const api = {
     import: (options?: { deckId?: string }) => ipcRenderer.invoke('image:import', options),
     getPath: (filename: string) => ipcRenderer.invoke('image:get-path', filename),
     importBuffer: (data: { buffer: number[]; filename: string; deckId?: string }) =>
-      ipcRenderer.invoke('image:import-buffer', data)
+      ipcRenderer.invoke('image:import-buffer', data),
+    process: (data: {
+      buffer: number[]
+      filename: string
+      options?: { maxWidth?: number; maxHeight?: number; format?: 'png' | 'jpeg' | 'webp'; quality?: number }
+    }) => ipcRenderer.invoke('image:process', data),
+    crop: (data: {
+      inputPath: string
+      crop: { left: number; top: number; width: number; height: number }
+      resize?: { width: number; height: number }
+    }) => ipcRenderer.invoke('image:crop', data)
   },
 
   // Export operations
@@ -28,6 +38,13 @@ const api = {
   // PSD import
   psd: {
     import: () => ipcRenderer.invoke('psd:import')
+  },
+
+  // Deck file operations
+  deckFile: {
+    save: (jsonString: string, defaultName: string) =>
+      ipcRenderer.invoke('deck:save-file', jsonString, defaultName),
+    open: () => ipcRenderer.invoke('deck:open-file')
   }
 }
 

@@ -232,6 +232,96 @@ export async function describeImage(
   })
 }
 
+// --- Deck Balancing ---
+
+export interface BalanceAdjustment {
+  cardId: string
+  adjustments: Record<string, number>
+}
+
+export async function balanceDeckStats(
+  config: AIProviderConfig,
+  cards: { id: string; name: string; stats: Record<string, number> }[],
+  categories: { id: string; name: string; min: number; max: number }[]
+): Promise<BalanceAdjustment[]> {
+  const cardData = cards.map((c) => {
+    const namedStats: Record<string, number> = {}
+    for (const cat of categories) {
+      namedStats[cat.name] = c.stats[cat.id] ?? 0
+    }
+    return { id: c.id, name: c.name, stats: namedStats }
+  })
+
+  const prompt = `Analyze these trading card stats and suggest adjustments so no single card dominates. Each stat should stay within its defined range.
+
+Categories: ${categories.map((c) => `${c.name} (${c.min}-${c.max})`).join(', ')}
+
+Cards:
+${JSON.stringify(cardData, null, 2)}
+
+Return ONLY a JSON array where each element has: { "id": "<card id>", "adjustments": { "<stat name>": <new value>, ... } }
+Only include cards that need changes. No explanation.`
+
+  const response = await generateText(config, { prompt, temperature: 0.3 })
+
+  try {
+    const match = response.match(/\[[\s\S]*\]/)
+    if (!match) return []
+    const parsed = JSON.parse(match[0]) as { id: string; adjustments: Record<string, number> }[]
+
+    // Map stat names back to category IDs
+    return parsed.map((item) => {
+      const mapped: Record<string, number> = {}
+      for (const cat of categories) {
+        if (item.adjustments[cat.name] !== undefined) {
+          mapped[cat.id] = Math.min(cat.max, Math.max(cat.min, item.adjustments[cat.name]))
+        }
+      }
+      return { cardId: item.id, adjustments: mapped }
+    })
+  } catch {
+    return []
+  }
+}
+
+// --- Describe Card From Image ---
+
+export interface CardDescriptionFromImage {
+  name: string
+  description: string
+  funFact: string
+  stats: Record<string, number>
+}
+
+export async function describeCardFromImage(
+  config: AIProviderConfig,
+  imageBase64: string,
+  categories: { name: string; min: number; max: number }[]
+): Promise<CardDescriptionFromImage> {
+  const catList = categories.length > 0
+    ? `\nStat categories: ${categories.map((c) => `${c.name} (${c.min}-${c.max})`).join(', ')}`
+    : ''
+
+  const response = await analyzeImage(config, {
+    imageBase64,
+    prompt: `Look at this trading card image and suggest:
+1. A card name
+2. A short description (2-3 sentences)
+3. A fun fact (1 sentence)
+4. Stat values for these categories${catList}
+
+Return ONLY a JSON object with keys: "name", "description", "funFact", "stats" (object with category names as keys and number values). No explanation.`
+  })
+
+  try {
+    const match = response.match(/\{[\s\S]*\}/)
+    if (!match) return { name: '', description: '', funFact: '', stats: {} }
+    return JSON.parse(match[0])
+  } catch {
+    return { name: '', description: '', funFact: '', stats: {} }
+  }
+}
+
 // --- Ollama availability check ---
 
 export async function checkOllamaAvailable(

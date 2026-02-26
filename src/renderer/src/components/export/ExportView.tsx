@@ -2,8 +2,9 @@ import React from "react"
 import { useState, useCallback } from 'react'
 import { usePrintStore } from '../../stores/printStore'
 import { useEditorStore } from '../../stores/editorStore'
-import { generatePDF, generateTestSheet, type GeneratePDFProgress } from '../../lib/pdf'
+import { generatePDF, generateTestSheet, generateCutGuide, type GeneratePDFProgress } from '../../lib/pdf'
 import { exportAllCards } from '../../lib/renderer'
+import { PrintPreview } from './PrintPreview'
 
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
@@ -27,6 +28,7 @@ export function ExportView(): React.JSX.Element {
   const [exporting, setExporting] = useState(false)
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
+  const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null)
 
   const handleExportPDF = useCallback(async () => {
     if (!deck) return
@@ -65,6 +67,43 @@ export function ExportView(): React.JSX.Element {
         downloadBlob(blobs[i], `${card.name.replace(/[^a-zA-Z0-9]/g, '_')}_front.${ext}`)
       }
       setProgress(`✅ Exported ${blobs.length} card images!`)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setExporting(false)
+    }
+  }, [deck, settings])
+
+  const handleCutGuide = useCallback(async () => {
+    if (!deck) return
+    setExporting(true)
+    setError('')
+    try {
+      setProgress('Generating cut guide…')
+      const bytes = await generateCutGuide(deck, settings)
+      downloadBytes(bytes, `${deck.name}_cut_guide.pdf`)
+      setProgress('✅ Cut guide exported!')
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setExporting(false)
+    }
+  }, [deck, settings])
+
+  const handlePreview = useCallback(async () => {
+    if (!deck) return
+    setExporting(true)
+    setError('')
+    try {
+      const bytes = await generatePDF(deck, settings, (p: GeneratePDFProgress) => {
+        if (p.phase === 'rendering') {
+          setProgress(`Rendering preview… ${p.current + 1}/${p.total}`)
+        } else {
+          setProgress(`Composing preview… ${p.current + 1}/${p.total}`)
+        }
+      })
+      setPreviewBytes(bytes)
+      setProgress('')
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -270,6 +309,12 @@ export function ExportView(): React.JSX.Element {
             <button className="btn" onClick={handleTestSheet} disabled={exporting}>
               📐 Generate Test Sheet
             </button>
+            <button className="btn" onClick={handleCutGuide} disabled={exporting}>
+              ✂️ Export Cut Guide
+            </button>
+            <button className="btn" onClick={handlePreview} disabled={exporting}>
+              👁️ Preview PDF
+            </button>
           </div>
 
           <div className="section-divider" />
@@ -304,22 +349,32 @@ export function ExportView(): React.JSX.Element {
             style={{
               background: 'var(--bg-secondary)',
               borderRadius: 'var(--radius)',
-              padding: 16,
               minHeight: 400,
+              maxHeight: 'calc(100vh - 120px)',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--text-muted)'
+              flexDirection: 'column',
+              overflow: 'hidden'
             }}
           >
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>📄</div>
-              <p>Print preview will appear here</p>
-              <p style={{ fontSize: 11, marginTop: 4 }}>
-                {deck.cards.length} cards • {deck.dimensions.width}×{deck.dimensions.height}mm •{' '}
-                {settings.dpi} DPI
-              </p>
-            </div>
+            {previewBytes ? (
+              <PrintPreview
+                pdfBytes={previewBytes}
+                bleedMm={deck.dimensions.bleed}
+                trimWidthMm={deck.dimensions.width}
+                trimHeightMm={deck.dimensions.height}
+              />
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', padding: 16 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>📄</div>
+                  <p>Click "Preview PDF" to see print layout</p>
+                  <p style={{ fontSize: 11, marginTop: 4 }}>
+                    {deck.cards.length} cards • {deck.dimensions.width}×{deck.dimensions.height}mm •{' '}
+                    {settings.dpi} DPI
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

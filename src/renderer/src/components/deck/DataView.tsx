@@ -1,6 +1,18 @@
-import React from "react"
+import React, { useState } from "react"
 import { useEditorStore } from '../../stores/editorStore'
-// import type { CardCategory } from '../../types'
+import { exportCSV, exportJSON } from '../../lib/dataExport'
+import { ImportDialog } from './ImportDialog'
+import { BalanceDialog } from './BalanceDialog'
+
+function downloadText(text: string, filename: string, mime: string): void {
+  const blob = new Blob([text], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export function DataView(): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
@@ -10,6 +22,8 @@ export function DataView(): React.JSX.Element {
   const addCategory = useEditorStore((s) => s.addCategory)
   const removeCategory = useEditorStore((s) => s.removeCategory)
   const updateCategory = useEditorStore((s) => s.updateCategory)
+  const [showImport, setShowImport] = useState(false)
+  const [showBalance, setShowBalance] = useState(false)
 
   if (!deck) return <div />
 
@@ -27,6 +41,18 @@ export function DataView(): React.JSX.Element {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
         <h2 style={{ fontSize: 18, fontWeight: 600 }}>📊 Card Data</h2>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-sm" onClick={() => setShowImport(true)}>
+            📥 Import
+          </button>
+          <button className="btn btn-sm" onClick={() => downloadText(exportCSV(deck), `${deck.name}.csv`, 'text/csv')}>
+            📤 CSV
+          </button>
+          <button className="btn btn-sm" onClick={() => downloadText(exportJSON(deck), `${deck.name}.json`, 'application/json')}>
+            📤 JSON
+          </button>
+          <button className="btn btn-sm" onClick={() => setShowBalance(true)}>
+            ⚖️ Balance Stats
+          </button>
           <button className="btn btn-sm" onClick={handleAddCategory}>
             + Add Stat Category
           </button>
@@ -184,6 +210,9 @@ export function DataView(): React.JSX.Element {
           <p style={{ fontSize: 12 }}>Click &quot;+ Add Card&quot; to get started.</p>
         </div>
       )}
+
+      {showImport && <ImportDialog onClose={() => setShowImport(false)} />}
+      {showBalance && <BalanceDialog onClose={() => setShowBalance(false)} />}
     </div>
   )
 }

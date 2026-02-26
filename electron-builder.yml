@@ -1,5 +1,6 @@
 appId: com.deckforge.app
 productName: DeckForge
+icon: build/icon.png
 directories:
   buildResources: build
 files:

@@ -1,7 +1,8 @@
-import { app, shell, BrowserWindow, session } from 'electron'
+import { app, shell, BrowserWindow, session, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { autoUpdater } from 'electron-updater'
 import { initDatabase, closeDatabase } from './database'
 import { registerIpcHandlers } from './ipc'
 import { createMenu } from './menu'
@@ -56,12 +57,13 @@ app.whenReady().then(() => {
 
   // Set Content Security Policy
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const csp = is.dev
+      ? "default-src 'self' 'unsafe-inline' 'unsafe-eval' ws: http: https: file: data:; img-src 'self' data: file: blob:; font-src 'self' data:;"
+      : "default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file:; img-src 'self' data: file: blob:; font-src 'self' data: file:; connect-src 'self' https: file:;"
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:; font-src 'self' data:; connect-src 'self' https:;"
-        ]
+        'Content-Security-Policy': [csp]
       }
     })
   })
@@ -80,6 +82,47 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+
+  // Auto-updater
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.checkForUpdatesAndNotify().catch(() => {
+    // Silently fail if no update server configured
+  })
+
+  autoUpdater.on('checking-for-update', () => {
+    BrowserWindow.getAllWindows().forEach((w) =>
+      w.webContents.send('updater:status', 'checking')
+    )
+  })
+  autoUpdater.on('update-available', () => {
+    BrowserWindow.getAllWindows().forEach((w) =>
+      w.webContents.send('updater:status', 'available')
+    )
+  })
+  autoUpdater.on('update-downloaded', () => {
+    BrowserWindow.getAllWindows().forEach((w) =>
+      w.webContents.send('updater:status', 'downloaded')
+    )
+  })
+  autoUpdater.on('update-not-available', () => {
+    BrowserWindow.getAllWindows().forEach((w) =>
+      w.webContents.send('updater:status', 'up-to-date')
+    )
+  })
+
+  ipcMain.handle('updater:check', async () => {
+    try {
+      const result = await autoUpdater.checkForUpdates()
+      return result?.updateInfo?.version ?? null
+    } catch {
+      return null
+    }
+  })
+
+  ipcMain.handle('updater:install', () => {
+    autoUpdater.quitAndInstall()
+  })
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

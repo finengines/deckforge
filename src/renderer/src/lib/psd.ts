@@ -1,6 +1,14 @@
-import { readPsd } from 'ag-psd'
-import 'ag-psd/initialize-canvas'
 import { v4 as uuid } from 'uuid'
+
+let _agPsd: typeof import('ag-psd') | null = null
+
+async function loadAgPsd(): Promise<typeof import('ag-psd')> {
+  if (!_agPsd) {
+    _agPsd = await import('ag-psd')
+    await import('ag-psd/initialize-canvas')
+  }
+  return _agPsd
+}
 import type { ComponentDefinition, ComponentSlot, Layer, TextLayer, ImageLayer, ShapeLayer } from '../types'
 
 export interface PsdLayerInfo {
@@ -15,12 +23,13 @@ export interface PsdLayerInfo {
 }
 
 /** Parse a PSD file buffer and extract layer info */
-export function parsePsd(buffer: ArrayBuffer): {
+export async function parsePsd(buffer: ArrayBuffer): Promise<{
   width: number
   height: number
   layers: PsdLayerInfo[]
-} {
-  const psd = readPsd(buffer, {
+}> {
+  const agPsd = await loadAgPsd()
+  const psd = agPsd.readPsd(buffer, {
     skipCompositeImageData: false,
     skipLayerImageData: false,
     skipThumbnail: false

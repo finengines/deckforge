@@ -10,7 +10,7 @@ const layerIcons: Record<string, string> = {
   component: '🧩'
 }
 
-export function LayerPanel(): React.JSX.Element {
+export const LayerPanel = React.memo(function LayerPanel(): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const editingSide = useEditorStore((s) => s.editingSide)
   const selectedLayerIds = useEditorStore((s) => s.selectedLayerIds)
@@ -131,4 +131,4 @@ export function LayerPanel(): React.JSX.Element {
       </div>
     </div>
   )
-}
+})

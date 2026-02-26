@@ -9,6 +9,9 @@ import { ComponentLayerRenderer } from './ComponentLayerRenderer'
 import { useImage } from '../../hooks/useImage'
 import { snapToGrid, getSnapLines, type SnapLine } from '../../lib/snapping'
 import { Rulers } from './Rulers'
+import { useContextMenu } from '../../hooks/useContextMenu'
+import { ContextMenu } from '../ContextMenu'
+import { ImageCropDialog, type CropParams } from '../ImageCropDialog'
 
 /** Scale factor for canvas display: 3px per mm for comfortable editing */
 const SCREEN_SCALE = 3
@@ -37,7 +40,7 @@ function ImageLayerNode({
   )
 }
 
-export function Canvas(): React.JSX.Element {
+export const Canvas = React.memo(function Canvas(): React.JSX.Element {
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
 
@@ -60,6 +63,8 @@ export function Canvas(): React.JSX.Element {
 
   const [snapLines, setSnapLines] = useState<SnapLine[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
+  const { menu, showMenu, hideMenu } = useContextMenu()
+  const [cropTarget, setCropTarget] = useState<{ src: string; width: number; height: number; layerId: string } | null>(null)
 
   const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
   const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']
@@ -149,7 +154,85 @@ export function Canvas(): React.JSX.Element {
   // --- Click handling (multi-select with shift) ---
   const handleStageClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
+      const currentMode = useEditorStore.getState().mode
+
       if (e.target === e.target.getStage()) {
+        // Clicking on empty canvas area
+        if (currentMode === 'text') {
+          // Create a text layer at click position
+          const stage = e.target.getStage()!
+          const pointer = stage.getPointerPosition()!
+          const x = (pointer.x - panOffset.x) / zoom / SCREEN_SCALE
+          const y = (pointer.y - panOffset.y) / zoom / SCREEN_SCALE
+          const newLayer: TextLayer = {
+            id: uuid(),
+            type: 'text',
+            name: 'Text',
+            x,
+            y,
+            width: 40,
+            height: 10,
+            rotation: 0,
+            opacity: 1,
+            visible: true,
+            locked: false,
+            text: 'New Text',
+            fontSize: 4,
+            fontFamily: 'Inter',
+            fontWeight: '400',
+            fontStyle: 'normal',
+            fill: '#000000',
+            align: 'left',
+            verticalAlign: 'top',
+            lineHeight: 1.2,
+            letterSpacing: 0,
+            textDecoration: ''
+          }
+          addLayer(newLayer)
+          useEditorStore.getState().setMode('select')
+          return
+        }
+
+        if (currentMode === 'image') {
+          // Open file picker for image
+          const input = document.createElement('input')
+          input.type = 'file'
+          input.accept = 'image/jpeg,image/png,image/gif,image/webp,image/svg+xml'
+          input.onchange = async (): Promise<void> => {
+            const file = input.files?.[0]
+            if (!file) return
+            const arrayBuffer = await file.arrayBuffer()
+            const buffer = Array.from(new Uint8Array(arrayBuffer))
+            const result = await window.api.image.importBuffer({ buffer, filename: file.name })
+            if (result.success && result.data) {
+              const stage = stageRef.current
+              const pointer = stage?.getPointerPosition()
+              const x = pointer ? (pointer.x - panOffset.x) / zoom / SCREEN_SCALE : 5
+              const y = pointer ? (pointer.y - panOffset.y) / zoom / SCREEN_SCALE : 5
+              const newLayer: ImageLayer = {
+                id: uuid(),
+                type: 'image',
+                name: file.name,
+                x,
+                y,
+                width: 50,
+                height: 50,
+                rotation: 0,
+                opacity: 1,
+                visible: true,
+                locked: false,
+                src: result.data.filePath,
+                fit: 'contain',
+                filters: { brightness: 0, contrast: 0, saturation: 0, blur: 0, grayscale: false }
+              }
+              addLayer(newLayer)
+            }
+            useEditorStore.getState().setMode('select')
+          }
+          input.click()
+          return
+        }
+
         selectLayers([])
         return
       }
@@ -168,7 +251,7 @@ export function Canvas(): React.JSX.Element {
         selectLayers([id])
       }
     },
-    [selectLayers]
+    [selectLayers, addLayer, zoom, panOffset]
   )
 
   const handleWheel = useCallback(
@@ -329,6 +412,51 @@ export function Canvas(): React.JSX.Element {
     }
   }
 
+  // --- Right-click context menu for image layers ---
+  const handleContextMenu = useCallback(
+    (e: Konva.KonvaEventObject<PointerEvent>) => {
+      e.evt.preventDefault()
+      const id = e.target.id()
+      if (!id) return
+      const layer = layers.find((l) => l.id === id)
+      if (!layer || layer.type !== 'image') return
+      const imgLayer = layer as ImageLayer
+      showMenu(e.evt.clientX, e.evt.clientY, [
+        {
+          label: '✂️ Crop / Resize',
+          action: () => {
+            // Load actual image dimensions
+            const img = new Image()
+            img.onload = () => {
+              setCropTarget({ src: imgLayer.src, width: img.naturalWidth, height: img.naturalHeight, layerId: imgLayer.id })
+            }
+            img.onerror = () => {
+              setCropTarget({ src: imgLayer.src, width: Math.round(imgLayer.width * 10), height: Math.round(imgLayer.height * 10), layerId: imgLayer.id })
+            }
+            img.src = imgLayer.src
+          }
+        }
+      ])
+    },
+    [layers, showMenu]
+  )
+
+  const handleCropApply = useCallback(
+    async (crop: CropParams, resize?: { width: number; height: number }) => {
+      if (!cropTarget) return
+      const result = await window.api.image.crop({
+        inputPath: cropTarget.src,
+        crop,
+        resize
+      })
+      if (result.success && result.data) {
+        updateLayer(cropTarget.layerId, { src: result.data.path } as any)
+      }
+      setCropTarget(null)
+    },
+    [cropTarget, updateLayer]
+  )
+
   // Center card on canvas
   const stageWidth = typeof window !== 'undefined' ? window.innerWidth - 260 * 2 : 800
   const stageHeight = typeof window !== 'undefined' ? window.innerHeight - 44 : 600
@@ -361,6 +489,7 @@ export function Canvas(): React.JSX.Element {
         width={stageWidth}
         height={stageHeight}
         onClick={handleStageClick}
+        onContextMenu={handleContextMenu}
         onWheel={handleWheel}
         style={{ marginLeft: showRulers ? 24 : 0, marginTop: showRulers ? 24 : 0 }}
       >
@@ -426,6 +555,18 @@ export function Canvas(): React.JSX.Element {
         </Layer>
       </Stage>
 
+      <ContextMenu visible={menu.visible} x={menu.x} y={menu.y} items={menu.items} onClose={hideMenu} />
+
+      {cropTarget && (
+        <ImageCropDialog
+          imageSrc={cropTarget.src}
+          imageWidth={cropTarget.width}
+          imageHeight={cropTarget.height}
+          onApply={handleCropApply}
+          onClose={() => setCropTarget(null)}
+        />
+      )}
+
       {/* Canvas info bar */}
       <div
         style={{
@@ -446,4 +587,4 @@ export function Canvas(): React.JSX.Element {
       </div>
     </div>
   )
-}
+})

@@ -7,7 +7,9 @@ import {
   generateImage,
   generateCardStats,
   describeImage,
-  type GenerateTextOptions
+  describeCardFromImage,
+  type GenerateTextOptions,
+  type CardDescriptionFromImage
 } from '../../lib/ai'
 import type { AIProviderConfig, AITask } from '../../types'
 
@@ -81,6 +83,7 @@ export function AIPanel(): React.JSX.Element {
 
   const [visionProvider, setVisionProvider] = useState(defaults.vision)
   const [visionResult, setVisionResult] = useState('')
+  const [describeResult, setDescribeResult] = useState<CardDescriptionFromImage | null>(null)
 
   const selectedCard = deck?.cards.find((c) => c.id === selectedCardId)
   const getConfig = (id: string): AIProviderConfig | undefined => providers.find((p) => p.id === id)
@@ -157,6 +160,43 @@ export function AIPanel(): React.JSX.Element {
       setGenerating(false)
     }
   }, [visionProvider, selectedCard])
+
+  const handleDescribeFromImage = useCallback(async () => {
+    const config = getConfig(visionProvider)
+    if (!config || !selectedCard?.image) return
+    setGenerating(true, 'AI describing card…')
+    try {
+      const b64 = selectedCard.image.startsWith('data:')
+        ? selectedCard.image.split(',')[1]
+        : selectedCard.image
+      const cats = deck?.categories.map((c) => ({ name: c.name, min: c.min, max: c.max })) ?? []
+      const result = await describeCardFromImage(config, b64, cats)
+      setDescribeResult(result)
+    } catch (e: any) {
+      setDescribeResult(null)
+    } finally {
+      setGenerating(false)
+    }
+  }, [visionProvider, selectedCard, deck])
+
+  const applyDescription = (): void => {
+    if (!describeResult || !selectedCard || !deck) return
+    const updates: Record<string, any> = {}
+    if (describeResult.name) updates.name = describeResult.name
+    if (describeResult.description) updates.description = describeResult.description
+    if (describeResult.funFact) updates.funFact = describeResult.funFact
+    if (describeResult.stats && Object.keys(describeResult.stats).length > 0) {
+      const mapped: Record<string, number> = { ...selectedCard.stats }
+      for (const cat of deck.categories) {
+        if (describeResult.stats[cat.name] !== undefined) {
+          mapped[cat.id] = Math.min(cat.max, Math.max(cat.min, describeResult.stats[cat.name]))
+        }
+      }
+      updates.stats = mapped
+    }
+    updateCard(selectedCard.id, updates)
+    setDescribeResult(null)
+  }
 
   if (!deck) {
     return (
@@ -305,6 +345,36 @@ export function AIPanel(): React.JSX.Element {
                 → Description
               </button>
             )}
+          </div>
+        )}
+      </Section>
+
+      {/* AI Describe Card (full) */}
+      <Section title="AI Describe Card" icon="🔮">
+        <ProviderSelect task="vision" value={visionProvider} onChange={setVisionProvider} />
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+          Analyzes card image and suggests name, description, fun fact, and stats.
+        </p>
+        <button className="btn btn-primary btn-sm" onClick={handleDescribeFromImage}
+          disabled={generating || !selectedCard?.image} style={{ marginTop: 6, width: '100%' }}>
+          {generating ? '⏳ Analyzing…' : '🔮 AI Describe Card'}
+        </button>
+        {describeResult && (
+          <div style={{ marginTop: 8, padding: 8, background: 'var(--bg-tertiary)', borderRadius: 4, fontSize: 11 }}>
+            {describeResult.name && <div><strong>Name:</strong> {describeResult.name}</div>}
+            {describeResult.description && <div style={{ marginTop: 4 }}><strong>Description:</strong> {describeResult.description}</div>}
+            {describeResult.funFact && <div style={{ marginTop: 4 }}><strong>Fun Fact:</strong> {describeResult.funFact}</div>}
+            {Object.keys(describeResult.stats).length > 0 && (
+              <div style={{ marginTop: 4 }}>
+                <strong>Stats:</strong>
+                {Object.entries(describeResult.stats).map(([k, v]) => (
+                  <div key={k} style={{ paddingLeft: 8 }}>{k}: {v}</div>
+                ))}
+              </div>
+            )}
+            <button className="btn btn-primary btn-sm" style={{ marginTop: 8, width: '100%' }} onClick={applyDescription}>
+              ✅ Apply to Card
+            </button>
           </div>
         )}
       </Section>

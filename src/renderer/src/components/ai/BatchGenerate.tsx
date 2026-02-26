@@ -1,5 +1,5 @@
 import React from "react"
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useAIStore } from '../../stores/aiStore'
 import { useEditorStore } from '../../stores/editorStore'
 import {
@@ -14,6 +14,14 @@ interface BatchOptions {
   stats: boolean
 }
 
+interface CardResult {
+  cardId: string
+  cardName: string
+  status: 'pending' | 'generating' | 'done' | 'error'
+  error?: string
+  preview?: { description?: string; funFact?: string }
+}
+
 export function BatchGenerate({ onClose }: { onClose: () => void }): React.JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const updateCard = useEditorStore((s) => s.updateCard)
@@ -22,50 +30,55 @@ export function BatchGenerate({ onClose }: { onClose: () => void }): React.JSX.E
   const { setGenerating } = useAIStore()
 
   const [opts, setOpts] = useState<BatchOptions>({ descriptions: true, funFacts: true, stats: true })
-  const [progress, setProgress] = useState(0)
-  const [total, setTotal] = useState(0)
   const [running, setRunning] = useState(false)
-  const [currentCard, setCurrentCard] = useState('')
-  const [errors, setErrors] = useState<string[]>([])
+  const [results, setResults] = useState<CardResult[]>([])
+  const [delay, setDelay] = useState(1000)
+  const cancelRef = useRef(false)
 
   const handleGenerate = useCallback(async () => {
     if (!deck) return
     const textConfig = providers.find((p) => p.id === defaults.text)
     const statsConfig = providers.find((p) => p.id === defaults.stats)
-    if (!textConfig && (opts.descriptions || opts.funFacts)) {
-      setErrors(['No text provider configured'])
-      return
-    }
-    if (!statsConfig && opts.stats) {
-      setErrors(['No stats provider configured'])
-      return
-    }
+    if (!textConfig && (opts.descriptions || opts.funFacts)) return
+    if (!statsConfig && opts.stats) return
 
+    cancelRef.current = false
     setRunning(true)
     setGenerating(true, 'Batch generating…')
-    setErrors([])
-    const cards = deck.cards
-    setTotal(cards.length)
-    setProgress(0)
 
-    const errs: string[] = []
+    const cards = deck.cards
+    const initial: CardResult[] = cards.map((c) => ({
+      cardId: c.id, cardName: c.name, status: 'pending'
+    }))
+    setResults(initial)
+
     for (let i = 0; i < cards.length; i++) {
+      if (cancelRef.current) break
+
       const card = cards[i]
-      setCurrentCard(card.name)
-      setProgress(i)
+      setResults((prev) => prev.map((r, idx) =>
+        idx === i ? { ...r, status: 'generating' } : r
+      ))
 
       try {
         const updates: Record<string, any> = {}
         const aiFlags: Record<string, boolean> = { ...card.aiGenerated }
+        const preview: CardResult['preview'] = {}
 
         if (opts.descriptions && textConfig) {
           updates.description = await generateCardDescription(textConfig, card.name, deck.description)
           aiFlags.description = true
+          preview.description = updates.description
         }
+        if (cancelRef.current) break
+
         if (opts.funFacts && textConfig) {
           updates.funFact = await generateFunFact(textConfig, card.name)
           aiFlags.funFact = true
+          preview.funFact = updates.funFact
         }
+        if (cancelRef.current) break
+
         if (opts.stats && statsConfig && deck.categories.length > 0) {
           const cats = deck.categories.map((c) => ({ name: c.name, min: c.min, max: c.max }))
           const raw = await generateCardStats(statsConfig, card.name, cats, deck.description)
@@ -81,21 +94,37 @@ export function BatchGenerate({ onClose }: { onClose: () => void }): React.JSX.E
 
         updates.aiGenerated = aiFlags
         updateCard(card.id, updates)
+
+        setResults((prev) => prev.map((r, idx) =>
+          idx === i ? { ...r, status: 'done', preview } : r
+        ))
       } catch (e: any) {
-        errs.push(`${card.name}: ${e.message}`)
+        setResults((prev) => prev.map((r, idx) =>
+          idx === i ? { ...r, status: 'error', error: e.message } : r
+        ))
+      }
+
+      // Rate limiting delay
+      if (i < cards.length - 1 && !cancelRef.current) {
+        await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
 
-    setProgress(cards.length)
-    setErrors(errs)
     setRunning(false)
     setGenerating(false)
-    setCurrentCard('')
-  }, [deck, opts, providers, defaults])
+  }, [deck, opts, providers, defaults, delay])
+
+  const handleCancel = (): void => {
+    cancelRef.current = true
+  }
 
   if (!deck) return <div />
 
-  const pct = total > 0 ? Math.round((progress / total) * 100) : 0
+  const doneCount = results.filter((r) => r.status === 'done').length
+  const errorCount = results.filter((r) => r.status === 'error').length
+  const total = results.length
+  const pct = total > 0 ? Math.round((doneCount + errorCount) / total * 100) : 0
+  const finished = total > 0 && !running && (doneCount + errorCount) === total
 
   return (
     <div style={{
@@ -104,7 +133,7 @@ export function BatchGenerate({ onClose }: { onClose: () => void }): React.JSX.E
     }} onClick={(e) => { if (e.target === e.currentTarget && !running) onClose() }}>
       <div style={{
         background: 'var(--bg-primary)', borderRadius: 'var(--radius)', padding: 24,
-        width: 420, maxHeight: '80vh', overflow: 'auto'
+        width: 480, maxHeight: '80vh', overflow: 'auto'
       }}>
         <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>🤖 Batch AI Generation</h3>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
@@ -131,38 +160,84 @@ export function BatchGenerate({ onClose }: { onClose: () => void }): React.JSX.E
           ))}
         </div>
 
-        {running && (
+        {/* Rate limiting config */}
+        <div style={{ marginBottom: 16 }}>
+          <label className="input-label" style={{ fontSize: 11 }}>
+            Delay between cards: {delay}ms
+          </label>
+          <input type="range" min={200} max={5000} step={100} value={delay}
+            onChange={(e) => setDelay(parseInt(e.target.value))}
+            disabled={running}
+            style={{ width: '100%' }} />
+        </div>
+
+        {/* Progress bar */}
+        {results.length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, marginBottom: 4 }}>
-              {currentCard ? `Processing: ${currentCard}` : 'Starting…'} ({progress}/{total})
+            <div style={{ fontSize: 11, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+              <span>{doneCount}/{total} completed{errorCount > 0 ? ` (${errorCount} errors)` : ''}</span>
+              <span>{pct}%</span>
             </div>
-            <div style={{ height: 6, background: 'var(--bg-tertiary)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ height: 8, background: 'var(--bg-tertiary)', borderRadius: 4, overflow: 'hidden' }}>
               <div style={{
-                height: '100%', width: `${pct}%`, background: 'var(--accent)',
-                borderRadius: 3, transition: 'width 0.3s'
+                height: '100%', width: `${pct}%`,
+                background: errorCount > 0 ? 'linear-gradient(90deg, var(--accent), #ff6b6b)' : 'var(--accent)',
+                borderRadius: 4, transition: 'width 0.3s'
               }} />
             </div>
           </div>
         )}
 
-        {errors.length > 0 && (
-          <div style={{ marginBottom: 12, padding: 8, background: '#2a1515', borderRadius: 4, fontSize: 11 }}>
-            {errors.map((e, i) => <div key={i} style={{ color: '#ff6b6b' }}>⚠ {e}</div>)}
+        {/* Card results */}
+        {results.length > 0 && (
+          <div style={{ marginBottom: 16, maxHeight: 200, overflow: 'auto' }}>
+            {results.map((r) => (
+              <div key={r.cardId} style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0',
+                fontSize: 11, borderBottom: '1px solid var(--border)'
+              }}>
+                <span style={{ width: 18, textAlign: 'center' }}>
+                  {r.status === 'pending' && '⏳'}
+                  {r.status === 'generating' && '🔄'}
+                  {r.status === 'done' && '✅'}
+                  {r.status === 'error' && '❌'}
+                </span>
+                <span style={{ flex: 1, fontWeight: r.status === 'generating' ? 600 : 400 }}>
+                  {r.cardName}
+                </span>
+                {r.status === 'done' && r.preview?.description && (
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {r.preview.description.substring(0, 50)}…
+                  </span>
+                )}
+                {r.status === 'error' && (
+                  <span style={{ fontSize: 10, color: '#ff6b6b' }} title={r.error}>⚠ {r.error?.substring(0, 30)}</span>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
-        {progress === total && total > 0 && !running && (
+        {finished && (
           <div style={{ marginBottom: 12, padding: 8, background: '#152a15', borderRadius: 4, fontSize: 12, color: '#6bff6b' }}>
-            ✅ Completed! Generated content for {total} cards.
+            ✅ Completed! Generated content for {doneCount} cards.
+            {errorCount > 0 && <span style={{ color: '#ff6b6b' }}> ({errorCount} failed)</span>}
           </div>
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button className="btn btn-sm" onClick={onClose} disabled={running}>Cancel</button>
-          <button className="btn btn-primary btn-sm" onClick={handleGenerate}
-            disabled={running || (!opts.descriptions && !opts.funFacts && !opts.stats)}>
-            {running ? '⏳ Generating…' : `✨ Generate for ${deck.cards.length} Cards`}
-          </button>
+          {running && (
+            <button className="btn btn-sm" onClick={handleCancel} style={{ color: '#ff6b6b' }}>
+              ⏹ Cancel
+            </button>
+          )}
+          <button className="btn btn-sm" onClick={onClose} disabled={running}>Close</button>
+          {!running && (
+            <button className="btn btn-primary btn-sm" onClick={handleGenerate}
+              disabled={!opts.descriptions && !opts.funFacts && !opts.stats}>
+              ✨ Generate for {deck.cards.length} Cards
+            </button>
+          )}
         </div>
       </div>
     </div>

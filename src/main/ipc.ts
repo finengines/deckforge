@@ -3,6 +3,7 @@ import { saveDeck, loadDeck, listDecks, deleteDeck, saveImage, getImagesDir } fr
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
+import sharp from 'sharp'
 
 export function registerIpcHandlers(): void {
   // --- Deck Operations ---
@@ -185,6 +186,197 @@ export function registerIpcHandlers(): void {
       }
 
       return { success: true, data: result.filePath }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // --- Image Processing (sharp) ---
+
+  ipcMain.handle(
+    'image:process',
+    async (
+      _event,
+      data: {
+        buffer: number[]
+        filename: string
+        options?: {
+          maxWidth?: number
+          maxHeight?: number
+          format?: 'png' | 'jpeg' | 'webp'
+          quality?: number
+        }
+      }
+    ) => {
+      try {
+        const imagesDir = getImagesDir()
+        const opts = data.options ?? {}
+        const maxW = opts.maxWidth ?? 2048
+        const maxH = opts.maxHeight ?? 2048
+        const format = opts.format ?? 'png'
+        const quality = opts.quality ?? 90
+
+        const inputBuffer = Buffer.from(data.buffer)
+
+        // Process with sharp
+        let pipeline = sharp(inputBuffer).resize(maxW, maxH, { fit: 'inside', withoutEnlargement: true })
+
+        if (format === 'jpeg') {
+          pipeline = pipeline.jpeg({ quality })
+        } else if (format === 'webp') {
+          pipeline = pipeline.webp({ quality })
+        } else {
+          pipeline = pipeline.png()
+        }
+
+        const processed = await pipeline.toBuffer({ resolveWithObject: true })
+        const meta = processed.info
+
+        // Generate thumbnail (200px)
+        const thumbBuffer = await sharp(processed.data)
+          .resize(200, 200, { fit: 'inside', withoutEnlargement: true })
+          .png()
+          .toBuffer()
+
+        // Save files
+        const hash = crypto.createHash('sha256').update(processed.data).digest('hex').slice(0, 16)
+        const ext = format === 'jpeg' ? '.jpg' : format === 'webp' ? '.webp' : '.png'
+        const filename = `${hash}${ext}`
+        const thumbFilename = `${hash}_thumb.png`
+        const destPath = path.join(imagesDir, filename)
+        const thumbPath = path.join(imagesDir, thumbFilename)
+
+        fs.writeFileSync(destPath, processed.data)
+        fs.writeFileSync(thumbPath, thumbBuffer)
+
+        const id = crypto.randomUUID()
+        const mimeType = format === 'jpeg' ? 'image/jpeg' : format === 'webp' ? 'image/webp' : 'image/png'
+
+        saveImage({
+          id,
+          filename,
+          originalName: path.basename(data.filename),
+          mimeType,
+          width: meta.width,
+          height: meta.height,
+          filePath: destPath
+        })
+
+        return {
+          success: true,
+          data: {
+            id,
+            path: destPath,
+            thumbnailPath: thumbPath,
+            width: meta.width,
+            height: meta.height,
+            format,
+            sizeBytes: processed.data.length
+          }
+        }
+      } catch (error: any) {
+        return { success: false, error: error.message }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'image:crop',
+    async (
+      _event,
+      data: {
+        inputPath: string
+        crop: { left: number; top: number; width: number; height: number }
+        resize?: { width: number; height: number }
+      }
+    ) => {
+      try {
+        const imagesDir = getImagesDir()
+        const safePath = path.resolve(data.inputPath)
+
+        let pipeline = sharp(safePath).extract({
+          left: Math.round(data.crop.left),
+          top: Math.round(data.crop.top),
+          width: Math.round(data.crop.width),
+          height: Math.round(data.crop.height)
+        })
+
+        if (data.resize) {
+          pipeline = pipeline.resize(data.resize.width, data.resize.height, { fit: 'fill' })
+        }
+
+        const result = await pipeline.png().toBuffer({ resolveWithObject: true })
+
+        const hash = crypto.createHash('sha256').update(result.data).digest('hex').slice(0, 16)
+        const filename = `${hash}_cropped.png`
+        const destPath = path.join(imagesDir, filename)
+        fs.writeFileSync(destPath, result.data)
+
+        const id = crypto.randomUUID()
+        saveImage({
+          id,
+          filename,
+          originalName: filename,
+          mimeType: 'image/png',
+          width: result.info.width,
+          height: result.info.height,
+          filePath: destPath
+        })
+
+        return {
+          success: true,
+          data: {
+            id,
+            path: destPath,
+            width: result.info.width,
+            height: result.info.height
+          }
+        }
+      } catch (error: any) {
+        return { success: false, error: error.message }
+      }
+    }
+  )
+
+  // --- Deck File Save/Open ---
+
+  ipcMain.handle('deck:save-file', async (_event, jsonString: string, defaultName: string) => {
+    try {
+      const win = BrowserWindow.getFocusedWindow()
+      if (!win) return { success: false, error: 'No window' }
+
+      const result = await dialog.showSaveDialog(win, {
+        defaultPath: defaultName,
+        filters: [{ name: 'DeckForge', extensions: ['deckforge'] }]
+      })
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, error: 'Cancelled' }
+      }
+
+      fs.writeFileSync(result.filePath, jsonString, 'utf-8')
+      return { success: true, data: result.filePath }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('deck:open-file', async () => {
+    try {
+      const win = BrowserWindow.getFocusedWindow()
+      if (!win) return { success: false, error: 'No window' }
+
+      const result = await dialog.showOpenDialog(win, {
+        properties: ['openFile'],
+        filters: [{ name: 'DeckForge', extensions: ['deckforge'] }]
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, error: 'Cancelled' }
+      }
+
+      const content = fs.readFileSync(result.filePaths[0], 'utf-8')
+      return { success: true, data: content }
     } catch (error: any) {
       return { success: false, error: error.message }
     }

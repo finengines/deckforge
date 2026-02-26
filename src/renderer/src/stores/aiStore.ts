@@ -15,6 +15,10 @@ interface AIStore extends AISettings {
   generating: boolean
   generationProgress: string
   setGenerating: (generating: boolean, progress?: string) => void
+
+  // Style presets
+  lastStylePreset: string | null
+  setLastStylePreset: (preset: string | null) => void
 }
 
 export const useAIStore = create<AIStore>()(
@@ -49,6 +53,7 @@ export const useAIStore = create<AIStore>()(
       },
       generating: false,
       generationProgress: '',
+      lastStylePreset: null,
 
       addProvider: (config) =>
         set((s) => {
@@ -81,6 +86,11 @@ export const useAIStore = create<AIStore>()(
         set((s) => {
           s.generating = generating
           s.generationProgress = progress
+        }),
+
+      setLastStylePreset: (preset) =>
+        set((s) => {
+          s.lastStylePreset = preset
         })
     })),
     { name: 'deckforge-ai-settings' }
