@@ -1,4 +1,5 @@
 import { useEditorStore } from './stores/editorStore'
+import { useDeckPersistence } from './hooks/useDeckPersistence'
 import { Toolbar } from './components/editor/Toolbar'
 import { Canvas } from './components/editor/Canvas'
 import { LayerPanel } from './components/editor/LayerPanel'
@@ -13,6 +14,7 @@ import './assets/app.css'
 function App(): JSX.Element {
   const view = useEditorStore((s) => s.view)
   const currentDeck = useEditorStore((s) => s.currentDeck)
+  const { saveStatus } = useDeckPersistence()
 
   if (!currentDeck) {
     return <WelcomeScreen />
@@ -20,7 +22,7 @@ function App(): JSX.Element {
 
   return (
     <div className="app">
-      <Toolbar />
+      <Toolbar saveStatus={saveStatus} />
       <div className="app-body">
         {view === 'design' && (
           <>

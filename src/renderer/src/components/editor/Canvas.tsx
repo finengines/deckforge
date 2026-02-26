@@ -1,16 +1,38 @@
-import { useRef, useCallback, useEffect } from 'react'
-import { Stage, Layer, Rect, Text, Image as KonvaImage, Transformer } from 'react-konva'
+import { useRef, useCallback, useEffect, useState } from 'react'
+import { Stage, Layer, Rect, Text, Line, Image as KonvaImage, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { useEditorStore } from '../../stores/editorStore'
 import type { Layer as LayerType, TextLayer, ShapeLayer, ImageLayer } from '../../types'
+import { useImage } from '../../hooks/useImage'
+import { snapToGrid, getSnapLines, type SnapLine } from '../../lib/snapping'
+import { Rulers } from './Rulers'
 
-/** Convert mm to pixels at given DPI */
-function mmToPx(mm: number, dpi: number): number {
-  return (mm / 25.4) * dpi
+/** Scale factor for canvas display: 3px per mm for comfortable editing */
+const SCREEN_SCALE = 3
+
+// ---------- Image layer sub-component ----------
+function ImageLayerNode({
+  layer,
+  commonProps
+}: {
+  layer: ImageLayer
+  commonProps: Record<string, unknown>
+}): JSX.Element {
+  const [image, status] = useImage(layer.src)
+
+  if (status === 'loaded' && image) {
+    return <KonvaImage {...commonProps} image={image} />
+  }
+  // Placeholder while loading or on error
+  return (
+    <Rect
+      {...commonProps}
+      fill={status === 'error' ? '#4a2020' : '#333'}
+      stroke="#555"
+      strokeWidth={1}
+    />
+  )
 }
-
-/** Scale factor for canvas display (we work at screen DPI, export at print DPI) */
-const SCREEN_SCALE = 3 // 3px per mm for comfortable editing
 
 export function Canvas(): JSX.Element {
   const stageRef = useRef<Konva.Stage>(null)
@@ -22,10 +44,15 @@ export function Canvas(): JSX.Element {
   const zoom = useEditorStore((s) => s.zoom)
   const panOffset = useEditorStore((s) => s.panOffset)
   const mode = useEditorStore((s) => s.mode)
+  const snapEnabled = useEditorStore((s) => s.snapToGrid)
+  const gridSize = useEditorStore((s) => s.gridSize)
+  const showRulers = useEditorStore((s) => s.showRulers)
   const selectLayers = useEditorStore((s) => s.selectLayers)
   const updateLayer = useEditorStore((s) => s.updateLayer)
   const setPanOffset = useEditorStore((s) => s.setPanOffset)
   const setZoom = useEditorStore((s) => s.setZoom)
+
+  const [snapLines, setSnapLines] = useState<SnapLine[]>([])
 
   if (!deck) return <div className="canvas-container" />
 
@@ -51,6 +78,7 @@ export function Canvas(): JSX.Element {
     transformer.getLayer()?.batchDraw()
   }, [selectedLayerIds])
 
+  // --- Click handling (multi-select with shift) ---
   const handleStageClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (e.target === e.target.getStage()) {
@@ -58,7 +86,17 @@ export function Canvas(): JSX.Element {
         return
       }
       const id = e.target.id()
-      if (id) {
+      if (!id) return
+
+      if (e.evt.shiftKey) {
+        // Toggle selection
+        const current = useEditorStore.getState().selectedLayerIds
+        if (current.includes(id)) {
+          selectLayers(current.filter((lid) => lid !== id))
+        } else {
+          selectLayers([...current, id])
+        }
+      } else {
         selectLayers([id])
       }
     },
@@ -69,11 +107,9 @@ export function Canvas(): JSX.Element {
     (e: Konva.KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault()
       if (e.evt.ctrlKey || e.evt.metaKey) {
-        // Zoom
         const delta = e.evt.deltaY > 0 ? -0.05 : 0.05
         setZoom(zoom + delta)
       } else {
-        // Pan
         setPanOffset({
           x: panOffset.x - e.evt.deltaX,
           y: panOffset.y - e.evt.deltaY
@@ -83,8 +119,47 @@ export function Canvas(): JSX.Element {
     [zoom, panOffset, setZoom, setPanOffset]
   )
 
+  // --- Drag with snapping ---
+  const handleDragMove = useCallback(
+    (e: Konva.KonvaEventObject<DragEvent>) => {
+      const node = e.target
+      if (!snapEnabled) {
+        setSnapLines([])
+        return
+      }
+
+      const stage = stageRef.current
+      if (!stage) return
+
+      // Collect other layer nodes
+      const allNodes = layers
+        .filter((l) => l.id !== node.id())
+        .map((l) => stage.findOne(`#${l.id}`))
+        .filter(Boolean) as Konva.Node[]
+
+      // Grid snapping
+      const gridPx = gridSize * SCREEN_SCALE
+      let newX = node.x()
+      let newY = node.y()
+
+      // Element-to-element snapping
+      const snap = getSnapLines(node, allNodes)
+      if (snap.x !== null) newX = snap.x
+      else newX = snapToGrid(newX, gridPx)
+
+      if (snap.y !== null) newY = snap.y
+      else newY = snapToGrid(newY, gridPx)
+
+      node.x(newX)
+      node.y(newY)
+      setSnapLines(snap.lines)
+    },
+    [snapEnabled, gridSize, layers]
+  )
+
   const handleDragEnd = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {
+      setSnapLines([])
       const id = e.target.id()
       if (id) {
         updateLayer(id, {
@@ -130,6 +205,7 @@ export function Canvas(): JSX.Element {
       rotation: layer.rotation,
       opacity: layer.opacity,
       draggable: !layer.locked && mode === 'select',
+      onDragMove: handleDragMove,
       onDragEnd: handleDragEnd,
       onTransformEnd: handleTransformEnd
     }
@@ -167,8 +243,7 @@ export function Canvas(): JSX.Element {
         )
       }
       case 'image': {
-        // Image loading handled separately
-        return <Rect {...commonProps} fill="#333" stroke="#555" strokeWidth={1} />
+        return <ImageLayerNode layer={layer as ImageLayer} commonProps={commonProps} />
       }
       default:
         return null
@@ -182,13 +257,27 @@ export function Canvas(): JSX.Element {
   const offsetY = (stageHeight - cardH * zoom) / 2 + panOffset.y
 
   return (
-    <div className="canvas-container">
+    <div className="canvas-container" style={{ position: 'relative', overflow: 'hidden' }}>
+      {showRulers && (
+        <Rulers
+          cardWidth={dims.width}
+          cardHeight={dims.height}
+          zoom={zoom}
+          panOffsetX={panOffset.x}
+          panOffsetY={panOffset.y}
+          screenScale={SCREEN_SCALE}
+          stageWidth={stageWidth}
+          stageHeight={stageHeight}
+        />
+      )}
+
       <Stage
         ref={stageRef}
         width={stageWidth}
         height={stageHeight}
         onClick={handleStageClick}
         onWheel={handleWheel}
+        style={{ marginLeft: showRulers ? 24 : 0, marginTop: showRulers ? 24 : 0 }}
       >
         <Layer x={offsetX} y={offsetY} scaleX={zoom} scaleY={zoom}>
           {/* Bleed area */}
@@ -218,6 +307,29 @@ export function Canvas(): JSX.Element {
           {/* User layers */}
           {layers.map(renderLayer)}
 
+          {/* Snap guide lines */}
+          {snapLines.map((line, i) =>
+            line.direction === 'vertical' ? (
+              <Line
+                key={`snap-${i}`}
+                points={[line.position, -bleed, line.position, cardH + bleed]}
+                stroke="#00aaff"
+                strokeWidth={1}
+                dash={[4, 4]}
+                listening={false}
+              />
+            ) : (
+              <Line
+                key={`snap-${i}`}
+                points={[-bleed, line.position, cardW + bleed, line.position]}
+                stroke="#00aaff"
+                strokeWidth={1}
+                dash={[4, 4]}
+                listening={false}
+              />
+            )
+          )}
+
           {/* Transformer */}
           <Transformer
             ref={transformerRef}
@@ -245,7 +357,7 @@ export function Canvas(): JSX.Element {
         }}
       >
         {dims.width}×{dims.height}mm • {editingSide === 'front' ? 'Front' : 'Back'} •{' '}
-        {layers.length} layers
+        {layers.length} layers • {Math.round(zoom * 100)}%
       </div>
     </div>
   )

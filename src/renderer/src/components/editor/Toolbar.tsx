@@ -1,6 +1,10 @@
 import { useEditorStore } from '../../stores/editorStore'
 import type { EditorView, EditorMode } from '../../types'
 
+interface ToolbarProps {
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error'
+}
+
 const views: { id: EditorView; label: string; icon: string }[] = [
   { id: 'design', label: 'Design', icon: '🎨' },
   { id: 'data', label: 'Data', icon: '📊' },
@@ -16,7 +20,7 @@ const tools: { id: EditorMode; label: string; icon: string; shortcut: string }[]
   { id: 'pan', label: 'Pan', icon: '✋', shortcut: 'H' }
 ]
 
-export function Toolbar(): JSX.Element {
+export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): JSX.Element {
   const view = useEditorStore((s) => s.view)
   const mode = useEditorStore((s) => s.mode)
   const zoom = useEditorStore((s) => s.zoom)
@@ -107,6 +111,13 @@ export function Toolbar(): JSX.Element {
           </div>
         </>
       )}
+
+      {/* Save status */}
+      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+        {saveStatus === 'saving' && '💾 Saving...'}
+        {saveStatus === 'saved' && '✅ Saved'}
+        {saveStatus === 'error' && '❌ Save failed'}
+      </div>
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />

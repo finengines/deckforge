@@ -1,8 +1,33 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
-const api = {}
+const api = {
+  // Deck operations
+  deck: {
+    save: (deck: any) => ipcRenderer.invoke('deck:save', deck),
+    load: (id: string) => ipcRenderer.invoke('deck:load', id),
+    list: () => ipcRenderer.invoke('deck:list'),
+    delete: (id: string) => ipcRenderer.invoke('deck:delete', id)
+  },
+
+  // Image operations
+  image: {
+    import: (options?: { deckId?: string }) => ipcRenderer.invoke('image:import', options),
+    getPath: (filename: string) => ipcRenderer.invoke('image:get-path', filename)
+  },
+
+  // Export operations
+  export: {
+    saveFile: (options: { data: any; defaultName: string; filters?: any[] }) =>
+      ipcRenderer.invoke('export:save-file', options)
+  },
+
+  // PSD import
+  psd: {
+    import: () => ipcRenderer.invoke('psd:import')
+  }
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
