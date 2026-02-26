@@ -116,6 +116,43 @@ export function registerIpcHandlers(): void {
     return { success: false, error: 'Image not found' }
   })
 
+  // --- Image Import from Buffer (drag-and-drop) ---
+
+  ipcMain.handle('image:import-buffer', async (_event, data: { buffer: number[]; filename: string; deckId?: string }) => {
+    try {
+      const imagesDir = getImagesDir()
+      const buffer = Buffer.from(data.buffer)
+      const ext = path.extname(data.filename) || '.png'
+      const originalName = data.filename
+      const hash = crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 16)
+      const filename = `${hash}${ext}`
+      const destPath = path.join(imagesDir, filename)
+
+      if (!fs.existsSync(destPath)) {
+        fs.writeFileSync(destPath, buffer)
+      }
+
+      const id = crypto.randomUUID()
+      const mimeType = getMimeType(ext)
+
+      saveImage({
+        id,
+        deckId: data.deckId,
+        filename,
+        originalName,
+        mimeType,
+        filePath: destPath
+      })
+
+      return {
+        success: true,
+        data: { id, filename, originalName, mimeType, filePath: destPath }
+      }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
   // --- File Export ---
 
   ipcMain.handle('export:save-file', async (_event, options: { data: Buffer | string; defaultName: string; filters?: any[] }) => {

@@ -10,6 +10,7 @@ import { DataView } from './components/deck/DataView'
 import { ExportView } from './components/export/ExportView'
 import { SettingsView } from './components/settings/SettingsView'
 import { WelcomeScreen } from './components/WelcomeScreen'
+import { ToastContainer } from './components/Toast'
 import './assets/app.css'
 
 function App(): React.JSX.Element {
@@ -18,7 +19,12 @@ function App(): React.JSX.Element {
   const { saveStatus } = useDeckPersistence()
 
   if (!currentDeck) {
-    return <WelcomeScreen />
+    return (
+      <>
+        <WelcomeScreen />
+        <ToastContainer />
+      </>
+    )
   }
 
   return (
@@ -39,6 +45,7 @@ function App(): React.JSX.Element {
         {view === 'export' && <ExportView />}
         {view === 'settings' && <SettingsView />}
       </div>
+      <ToastContainer />
     </div>
   )
 }

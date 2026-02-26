@@ -194,7 +194,8 @@ export function ExportView(): React.JSX.Element {
               </label>
             </div>
 
-            <h3 style={{ fontSize: 13, fontWeight: 600, margin: '16px 0 12px' }}>
+            <div className="section-divider" />
+            <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
               Print Alignment (mm)
             </h3>
             <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
@@ -261,7 +262,7 @@ export function ExportView(): React.JSX.Element {
           {/* Action buttons */}
           <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button className="btn btn-primary" onClick={handleExportPDF} disabled={exporting}>
-              📄 Export {deck.cards.length} Cards as PDF
+              📄 Export Cards as PDF <span className="badge" style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}>{deck.cards.length}</span>
             </button>
             <button className="btn" onClick={handleExportImages} disabled={exporting}>
               🖼️ Export All Cards as Images
@@ -271,13 +272,20 @@ export function ExportView(): React.JSX.Element {
             </button>
           </div>
 
+          <div className="section-divider" />
+
           {/* Progress / Error */}
           {progress && (
             <div style={{
-              marginTop: 12, padding: 10, background: 'var(--bg-secondary)',
+              padding: 10, background: 'var(--bg-secondary)',
               borderRadius: 'var(--radius)', fontSize: 12
             }}>
-              {progress}
+              <div style={{ marginBottom: 6 }}>{progress}</div>
+              {exporting && (
+                <div className="progress-bar">
+                  <div className="progress-bar-fill" style={{ width: '60%' }} />
+                </div>
+              )}
             </div>
           )}
           {error && (

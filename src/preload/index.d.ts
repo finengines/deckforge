@@ -33,6 +33,7 @@ interface DeckAPI {
 interface ImageAPI {
   import: (options?: { deckId?: string }) => Promise<IpcResult<ImportedImage[]>>
   getPath: (filename: string) => Promise<IpcResult<string>>
+  importBuffer: (data: { buffer: number[]; filename: string; deckId?: string }) => Promise<IpcResult<ImportedImage>>
 }
 
 interface ExportAPI {

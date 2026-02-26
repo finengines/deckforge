@@ -1,5 +1,6 @@
 import React from "react"
-import { useRef, useCallback, useEffect, useState } from 'react'
+import { useRef, useCallback, useEffect, useState, type DragEvent as ReactDragEvent } from 'react'
+import { v4 as uuid } from 'uuid'
 import { Stage, Layer, Rect, Text, Line, Image as KonvaImage, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { useEditorStore } from '../../stores/editorStore'
@@ -55,7 +56,69 @@ export function Canvas(): React.JSX.Element {
   const setPanOffset = useEditorStore((s) => s.setPanOffset)
   const setZoom = useEditorStore((s) => s.setZoom)
 
+  const addLayer = useEditorStore((s) => s.addLayer)
+
   const [snapLines, setSnapLines] = useState<SnapLine[]>([])
+  const [isDragOver, setIsDragOver] = useState(false)
+
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
+  const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']
+
+  const isImageFile = useCallback((file: File): boolean => {
+    if (ALLOWED_IMAGE_TYPES.includes(file.type)) return true
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+    return ALLOWED_EXTENSIONS.includes(ext)
+  }, [])
+
+  const handleCanvasDragOver = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.dataTransfer.types.includes('Files')) {
+      e.dataTransfer.dropEffect = 'copy'
+      setIsDragOver(true)
+    }
+  }, [])
+
+  const handleCanvasDragLeave = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+  }, [])
+
+  const handleCanvasDrop = useCallback(async (e: ReactDragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+
+    const files = Array.from(e.dataTransfer.files).filter(isImageFile)
+    if (files.length === 0) return
+
+    for (const file of files) {
+      const arrayBuffer = await file.arrayBuffer()
+      const buffer = Array.from(new Uint8Array(arrayBuffer))
+      const result = await window.api.image.importBuffer({ buffer, filename: file.name })
+      if (result.success && result.data) {
+        const imgPath = result.data.filePath
+        const newLayer: ImageLayer = {
+          id: uuid(),
+          type: 'image',
+          name: file.name,
+          x: 5,
+          y: 5,
+          width: 50,
+          height: 50,
+          rotation: 0,
+          opacity: 1,
+          visible: true,
+          locked: false,
+          src: imgPath,
+          fit: 'contain',
+          filters: { brightness: 0, contrast: 0, saturation: 0, blur: 0, grayscale: false }
+        }
+        addLayer(newLayer)
+      }
+    }
+  }, [isImageFile, addLayer])
 
   if (!deck) return <div className="canvas-container" />
 
@@ -273,7 +336,13 @@ export function Canvas(): React.JSX.Element {
   const offsetY = (stageHeight - cardH * zoom) / 2 + panOffset.y
 
   return (
-    <div className="canvas-container" style={{ position: 'relative', overflow: 'hidden' }}>
+    <div
+      className={`canvas-container${isDragOver ? ' drop-zone-active' : ''}`}
+      style={{ position: 'relative', overflow: 'hidden' }}
+      onDragOver={handleCanvasDragOver}
+      onDragLeave={handleCanvasDragLeave}
+      onDrop={handleCanvasDrop}
+    >
       {showRulers && (
         <Rulers
           cardWidth={dims.width}

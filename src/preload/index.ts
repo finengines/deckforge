@@ -14,7 +14,9 @@ const api = {
   // Image operations
   image: {
     import: (options?: { deckId?: string }) => ipcRenderer.invoke('image:import', options),
-    getPath: (filename: string) => ipcRenderer.invoke('image:get-path', filename)
+    getPath: (filename: string) => ipcRenderer.invoke('image:get-path', filename),
+    importBuffer: (data: { buffer: number[]; filename: string; deckId?: string }) =>
+      ipcRenderer.invoke('image:import-buffer', data)
   },
 
   // Export operations

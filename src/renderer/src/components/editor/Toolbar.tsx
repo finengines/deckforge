@@ -7,18 +7,18 @@ interface ToolbarProps {
 }
 
 const views: { id: EditorView; label: string; icon: string }[] = [
-  { id: 'design', label: 'Design', icon: '🎨' },
-  { id: 'data', label: 'Data', icon: '📊' },
-  { id: 'export', label: 'Export', icon: '🖨️' },
-  { id: 'settings', label: 'Settings', icon: '⚙️' }
+  { id: 'design', label: 'Design', icon: '◆' },
+  { id: 'data', label: 'Data', icon: '☰' },
+  { id: 'export', label: 'Export', icon: '⎙' },
+  { id: 'settings', label: 'Settings', icon: '⚙' }
 ]
 
 const tools: { id: EditorMode; label: string; icon: string; shortcut: string }[] = [
-  { id: 'select', label: 'Select', icon: '⬆', shortcut: 'V' },
+  { id: 'select', label: 'Select', icon: '↖', shortcut: 'V' },
   { id: 'text', label: 'Text', icon: 'T', shortcut: 'T' },
-  { id: 'shape', label: 'Shape', icon: '◻', shortcut: 'R' },
-  { id: 'image', label: 'Image', icon: '🖼', shortcut: 'I' },
-  { id: 'pan', label: 'Pan', icon: '✋', shortcut: 'H' }
+  { id: 'shape', label: 'Shape', icon: '▭', shortcut: 'R' },
+  { id: 'image', label: 'Image', icon: '▣', shortcut: 'I' },
+  { id: 'pan', label: 'Pan', icon: '☐', shortcut: 'H' }
 ]
 
 export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): React.JSX.Element {
@@ -48,6 +48,7 @@ export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): React.JSX.Elemen
             key={v.id}
             className={`btn btn-ghost btn-sm ${view === v.id ? 'btn-active' : ''}`}
             onClick={() => setView(v.id)}
+            style={view === v.id ? { borderBottom: '2px solid var(--accent)', borderRadius: '4px 4px 0 0' } : undefined}
           >
             {v.icon} {v.label}
           </button>

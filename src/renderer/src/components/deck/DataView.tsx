@@ -102,16 +102,7 @@ export function DataView(): React.JSX.Element {
 
       {/* Cards table */}
       <div style={{ overflowX: 'auto' }}>
-        <table
-          style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            fontSize: 12,
-            background: 'var(--bg-secondary)',
-            borderRadius: 'var(--radius)',
-            overflow: 'hidden'
-          }}
-        >
+        <table className="data-table">
           <thead>
             <tr>
               <th style={thStyle}>#</th>
@@ -184,11 +175,13 @@ export function DataView(): React.JSX.Element {
         <div
           style={{
             textAlign: 'center',
-            padding: 40,
+            padding: 48,
             color: 'var(--text-muted)'
           }}
         >
-          No cards yet. Click "+ Add Card" to get started.
+          <div style={{ fontSize: 48, marginBottom: 12, opacity: 0.4 }}>📋</div>
+          <p style={{ fontSize: 14, marginBottom: 4 }}>No cards yet</p>
+          <p style={{ fontSize: 12 }}>Click &quot;+ Add Card&quot; to get started.</p>
         </div>
       )}
     </div>

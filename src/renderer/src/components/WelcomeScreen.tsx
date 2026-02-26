@@ -1,6 +1,7 @@
 import React from "react"
 import { useEffect, useState } from 'react'
 import { useEditorStore } from '../stores/editorStore'
+import { createSampleDeck } from '../lib/sampleDeck'
 
 interface DeckSummary {
   id: string
@@ -75,14 +76,22 @@ export function WelcomeScreen(): React.JSX.Element {
 
   return (
     <div className="welcome">
-      <h1>🃏 DeckForge</h1>
+      <div className="welcome-hero">🃏</div>
+      <h1>DeckForge</h1>
       <p>Design, create, and print custom card decks</p>
 
       <div className="welcome-actions">
         <button className="btn btn-primary" onClick={handleNewDeck}>
           ✨ New Deck
         </button>
+        <button
+          className="btn"
+          onClick={() => loadDeck(createSampleDeck())}
+        >
+          🎮 Try Sample Deck
+        </button>
       </div>
+      <div className="welcome-shortcut">⌘N to create a new deck</div>
 
       {!loading && recentDecks.length > 0 && (
         <div style={{ marginTop: 24, width: '100%', maxWidth: 500 }}>
