@@ -66,10 +66,11 @@ export function DeckPanel(): React.JSX.Element {
       </div>
       <div className="panel-content">
         {deck.cards.length === 0 && (
-          <div style={{ color: 'var(--text-muted)', fontSize: 11, padding: 8, textAlign: 'center' }}>
-            No cards yet.
-            <br />
-            <button className="btn btn-sm btn-primary" style={{ marginTop: 8 }} onClick={() => addCard()}>
+          <div style={{ color: 'var(--text-muted)', fontSize: 12, padding: 20, textAlign: 'center', lineHeight: 1.6 }}>
+            <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.4 }}>🃏</div>
+            <div style={{ fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 4 }}>Create your first card</div>
+            <div style={{ fontSize: 11, marginBottom: 12 }}>Click the + button above to get started ↗</div>
+            <button className="btn btn-sm btn-primary" onClick={() => addCard()}>
               ✨ Add First Card
             </button>
           </div>

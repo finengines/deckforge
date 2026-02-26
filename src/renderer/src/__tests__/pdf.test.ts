@@ -62,6 +62,26 @@ describe('calculateGrid', () => {
   })
 })
 
+describe('generatePDF edge cases', () => {
+  it('throws on zero cards', async () => {
+    const { generatePDF } = await import('../lib/pdf')
+    const settings: PrintSettings = {
+      paperSize: 'a4', orientation: 'portrait', trimMarks: false,
+      showBleed: false, cardSpacing: 2, dpi: 300,
+      frontOffset: { x: 0, y: 0 }, backOffset: { x: 0, y: 0 },
+      format: 'pdf', jpegQuality: 95, testSheet: false
+    }
+    const emptyDeck = {
+      id: 'test', name: 'Empty', description: '', cards: [],
+      dimensions: { width: 63, height: 88, bleed: 3, cornerRadius: 3, dpi: 300 },
+      categories: [], frontTemplate: { id: 't', name: 'F', description: '', frontLayers: [], backLayers: null, tags: [], builtIn: false, createdAt: '', updatedAt: '' },
+      backTemplate: { id: 't2', name: 'B', description: '', frontLayers: [], backLayers: null, tags: [], builtIn: false, createdAt: '', updatedAt: '' },
+      components: [], theme: {} as any, createdAt: '', updatedAt: ''
+    }
+    await expect(generatePDF(emptyDeck as any, settings)).rejects.toThrow('no cards')
+  })
+})
+
 describe('generateTestSheet', () => {
   it('returns a Uint8Array', async () => {
     // Import the actual function - pdf-lib works in Node/jsdom

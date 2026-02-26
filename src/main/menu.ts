@@ -144,10 +144,14 @@ export function createMenu(): void {
       label: 'Help',
       submenu: [
         {
+          label: 'Keyboard Shortcuts',
+          accelerator: 'Shift+/',
+          click: (): void => sendToRenderer('menu:keyboard-shortcuts')
+        },
+        { type: 'separator' },
+        {
           label: 'About DeckForge',
-          click: (): void => {
-            // TODO: about dialog
-          }
+          click: (): void => sendToRenderer('menu:about')
         }
       ]
     }

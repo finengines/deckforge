@@ -18,6 +18,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('deck:load', async (_event, id: string) => {
     try {
+      if (typeof id !== 'string' || !id) return { success: false, error: 'Invalid id' }
       const deck = loadDeck(id)
       return { success: true, data: deck }
     } catch (error: any) {
@@ -36,6 +37,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('deck:delete', async (_event, id: string) => {
     try {
+      if (typeof id !== 'string' || !id) return { success: false, error: 'Invalid id' }
       deleteDeck(id)
       return { success: true }
     } catch (error: any) {
@@ -122,8 +124,10 @@ export function registerIpcHandlers(): void {
     try {
       const imagesDir = getImagesDir()
       const buffer = Buffer.from(data.buffer)
-      const ext = path.extname(data.filename) || '.png'
-      const originalName = data.filename
+      // Sanitize filename to prevent path traversal
+      const safeName = path.basename(data.filename || 'image.png')
+      const ext = path.extname(safeName) || '.png'
+      const originalName = safeName
       const hash = crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 16)
       const filename = `${hash}${ext}`
       const destPath = path.join(imagesDir, filename)

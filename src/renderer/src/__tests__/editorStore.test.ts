@@ -159,6 +159,103 @@ describe('editorStore', () => {
     })
   })
 
+  describe('edge cases', () => {
+    beforeEach(() => {
+      useEditorStore.getState().createDeck('Test')
+    })
+
+    it('deleting the last card sets selectedCardId to null', () => {
+      useEditorStore.getState().addCard({ name: 'Only Card' })
+      const cardId = useEditorStore.getState().currentDeck!.cards[0].id
+      useEditorStore.getState().removeCard(cardId)
+      expect(useEditorStore.getState().currentDeck!.cards).toHaveLength(0)
+      expect(useEditorStore.getState().selectedCardId).toBeNull()
+    })
+
+    it('empty card name defaults to Untitled Card', () => {
+      useEditorStore.getState().addCard({ name: '' })
+      expect(useEditorStore.getState().currentDeck!.cards[0].name).toBe('Untitled Card')
+    })
+
+    it('very long deck name is truncated', () => {
+      const longName = 'A'.repeat(1000)
+      useEditorStore.getState().updateDeckName(longName)
+      expect(useEditorStore.getState().currentDeck!.name.length).toBeLessThanOrEqual(200)
+    })
+
+    it('very long card name is truncated', () => {
+      const longName = 'B'.repeat(1000)
+      useEditorStore.getState().addCard({ name: longName })
+      expect(useEditorStore.getState().currentDeck!.cards[0].name.length).toBeLessThanOrEqual(200)
+    })
+
+    it('stat value exceeding category max is clamped', () => {
+      useEditorStore.getState().addCategory({
+        name: 'Speed', min: 0, max: 100, higherIsBetter: true
+      })
+      const catId = useEditorStore.getState().currentDeck!.categories[0].id
+      useEditorStore.getState().addCard({ name: 'Fast', stats: { [catId]: 999 } })
+      expect(useEditorStore.getState().currentDeck!.cards[0].stats[catId]).toBe(100)
+    })
+
+    it('stat value below category min is clamped', () => {
+      useEditorStore.getState().addCategory({
+        name: 'Speed', min: 10, max: 100, higherIsBetter: true
+      })
+      const catId = useEditorStore.getState().currentDeck!.categories[0].id
+      useEditorStore.getState().addCard({ name: 'Slow', stats: { [catId]: -5 } })
+      expect(useEditorStore.getState().currentDeck!.cards[0].stats[catId]).toBe(10)
+    })
+
+    it('duplicate category names are rejected', () => {
+      useEditorStore.getState().addCategory({
+        name: 'Speed', min: 0, max: 100, higherIsBetter: true
+      })
+      useEditorStore.getState().addCategory({
+        name: 'Speed', min: 0, max: 50, higherIsBetter: false
+      })
+      expect(useEditorStore.getState().currentDeck!.categories).toHaveLength(1)
+    })
+
+    it('duplicate category names are case-insensitive', () => {
+      useEditorStore.getState().addCategory({
+        name: 'Speed', min: 0, max: 100, higherIsBetter: true
+      })
+      useEditorStore.getState().addCategory({
+        name: 'speed', min: 0, max: 50, higherIsBetter: false
+      })
+      expect(useEditorStore.getState().currentDeck!.categories).toHaveLength(1)
+    })
+
+    it('negative bleed is clamped to 0', () => {
+      useEditorStore.getState().updateDimensions({ bleed: -5 })
+      expect(useEditorStore.getState().currentDeck!.dimensions.bleed).toBe(0)
+    })
+
+    it('DPI is clamped to valid range', () => {
+      useEditorStore.getState().updateDimensions({ dpi: 10 })
+      expect(useEditorStore.getState().currentDeck!.dimensions.dpi).toBe(72)
+
+      useEditorStore.getState().updateDimensions({ dpi: 1200 })
+      expect(useEditorStore.getState().currentDeck!.dimensions.dpi).toBe(600)
+    })
+
+    it('gridSize is clamped to at least 1', () => {
+      useEditorStore.getState().setGridSize(0)
+      expect(useEditorStore.getState().gridSize).toBe(1)
+
+      useEditorStore.getState().setGridSize(-10)
+      expect(useEditorStore.getState().gridSize).toBe(1)
+    })
+
+    it('pan offset is clamped to reasonable bounds', () => {
+      useEditorStore.getState().setPanOffset({ x: 99999, y: -99999 })
+      const offset = useEditorStore.getState().panOffset
+      expect(offset.x).toBeLessThanOrEqual(10000)
+      expect(offset.y).toBeGreaterThanOrEqual(-10000)
+    })
+  })
+
   describe('canvas controls', () => {
     it('sets zoom with bounds', () => {
       useEditorStore.getState().setZoom(3)

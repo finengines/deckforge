@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { generateCardStats, checkOllamaAvailable, generateText } from '../lib/ai'
+import { generateCardStats, checkOllamaAvailable, generateText, generateImage, analyzeImage } from '../lib/ai'
 import type { AIProviderConfig } from '../types'
 
 // Mock @google/genai
@@ -119,5 +119,38 @@ describe('generateText', () => {
       'http://localhost:11434/api/chat',
       expect.objectContaining({ method: 'POST' })
     )
+  })
+
+  it('throws on empty prompt', async () => {
+    await expect(generateText(ollamaConfig, { prompt: '' })).rejects.toThrow('Prompt cannot be empty')
+  })
+
+  it('throws on whitespace-only prompt', async () => {
+    await expect(generateText(ollamaConfig, { prompt: '   ' })).rejects.toThrow('Prompt cannot be empty')
+  })
+
+  it('throws on very long prompt', async () => {
+    const longPrompt = 'x'.repeat(100001)
+    await expect(generateText(ollamaConfig, { prompt: longPrompt })).rejects.toThrow('exceeds maximum length')
+  })
+
+  it('throws when Gemini has no API key', async () => {
+    const geminiConfig: AIProviderConfig = {
+      id: 'test-gemini', provider: 'gemini', name: 'Gemini', enabled: true,
+      textModel: 'gemini-pro'
+    }
+    await expect(generateText(geminiConfig, { prompt: 'test' })).rejects.toThrow('API key is required')
+  })
+})
+
+describe('generateImage edge cases', () => {
+  it('throws on empty prompt', async () => {
+    await expect(generateImage(ollamaConfig, { prompt: '' })).rejects.toThrow('Image prompt cannot be empty')
+  })
+})
+
+describe('analyzeImage edge cases', () => {
+  it('throws on empty image data', async () => {
+    await expect(analyzeImage(ollamaConfig, { imageBase64: '', prompt: 'describe' })).rejects.toThrow('Image data is required')
   })
 })

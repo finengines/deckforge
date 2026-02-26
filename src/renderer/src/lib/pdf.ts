@@ -103,12 +103,23 @@ export async function generatePDF(
   settings: PrintSettings,
   onProgress?: (p: GeneratePDFProgress) => void
 ): Promise<Uint8Array> {
+  if (deck.cards.length === 0) {
+    throw new Error('Cannot generate PDF: deck has no cards')
+  }
+
   const pdfDoc = await PDFDocument.create()
   const [paperW, paperH] = getPaperSize(settings)
   const dims = deck.dimensions
 
-  const cardW = mmToPt(dims.width + (settings.showBleed ? dims.bleed * 2 : 0))
-  const cardH = mmToPt(dims.height + (settings.showBleed ? dims.bleed * 2 : 0))
+  // Clamp bleed to non-negative
+  const bleed = Math.max(0, settings.showBleed ? dims.bleed * 2 : 0)
+  const cardW = mmToPt(dims.width + bleed)
+  const cardH = mmToPt(dims.height + bleed)
+
+  // Warn if card is larger than page (still allow 1x1 grid)
+  if (cardW > paperW || cardH > paperH) {
+    console.warn('DeckForge: Card dimensions exceed page size. Cards will be clipped.')
+  }
   const spacing = mmToPt(settings.cardSpacing)
   const margin = mmToPt(10) // 10mm page margin
 

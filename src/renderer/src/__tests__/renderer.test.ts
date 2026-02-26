@@ -119,7 +119,31 @@ describe('mmToPx', () => {
     expect(mmToPx(25.4, 72)).toBe(72)
   })
 
-  it('handles zero', () => {
+  it('handles zero mm', () => {
     expect(mmToPx(0, 300)).toBe(0)
+  })
+
+  it('handles very high DPI (600)', () => {
+    expect(mmToPx(25.4, 600)).toBe(600)
+  })
+})
+
+describe('resolveBinding edge cases', () => {
+  it('returns empty for stat referencing deleted category', () => {
+    const deckNoCats = { categories: [] } as unknown as Deck
+    // stat:speed exists in card but category was deleted
+    const result = resolveBinding(makeLayer('stat:speed'), mockCard, deckNoCats)
+    // stat value exists (85) but no category found, so no unit → just the number
+    expect(result).toBe('85')
+  })
+
+  it('handles card with no stats at all', () => {
+    const emptyStatsCard = { ...mockCard, stats: {} }
+    expect(resolveBinding(makeLayer('stat:speed'), emptyStatsCard, mockDeck)).toBe('')
+  })
+
+  it('handles card with empty customFields', () => {
+    const noCustom = { ...mockCard, customFields: {} }
+    expect(resolveBinding(makeLayer('custom:anything'), noCustom, mockDeck)).toBe('')
   })
 })

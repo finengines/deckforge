@@ -121,6 +121,15 @@ export async function generateText(
   config: AIProviderConfig,
   opts: GenerateTextOptions
 ): Promise<string> {
+  if (!opts.prompt || opts.prompt.trim().length === 0) {
+    throw new Error('Prompt cannot be empty')
+  }
+  if (opts.prompt.length > 100000) {
+    throw new Error('Prompt exceeds maximum length (100,000 characters)')
+  }
+  if (config.provider === 'gemini' && !config.apiKey) {
+    throw new Error('API key is required for Gemini provider')
+  }
   switch (config.provider) {
     case 'gemini':
       return geminiText(config, opts)
@@ -135,6 +144,12 @@ export async function generateImage(
   config: AIProviderConfig,
   opts: GenerateImageOptions
 ): Promise<Buffer[]> {
+  if (!opts.prompt || opts.prompt.trim().length === 0) {
+    throw new Error('Image prompt cannot be empty')
+  }
+  if (config.provider === 'gemini' && !config.apiKey) {
+    throw new Error('API key is required for Gemini provider')
+  }
   switch (config.provider) {
     case 'gemini':
       return geminiImage(config, opts)
@@ -147,6 +162,12 @@ export async function analyzeImage(
   config: AIProviderConfig,
   opts: AnalyzeImageOptions
 ): Promise<string> {
+  if (!opts.imageBase64) {
+    throw new Error('Image data is required for analysis')
+  }
+  if (config.provider === 'gemini' && !config.apiKey) {
+    throw new Error('API key is required for Gemini provider')
+  }
   switch (config.provider) {
     case 'gemini':
       return geminiVision(config, opts)

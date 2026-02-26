@@ -90,8 +90,12 @@ export function LayerPanel(): React.JSX.Element {
       </div>
       <div className="panel-content">
         {layers.length === 0 && (
-          <div style={{ color: 'var(--text-muted)', fontSize: 11, padding: 8 }}>
-            No layers yet. Add elements using the toolbar or buttons above.
+          <div style={{ color: 'var(--text-muted)', fontSize: 12, padding: 16, textAlign: 'center', lineHeight: 1.6 }}>
+            <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.4 }}>◇</div>
+            <div>Drag layers here or click <strong>+</strong> to add</div>
+            <div style={{ fontSize: 10, marginTop: 6 }}>
+              Use <kbd style={{ padding: '1px 4px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-light)', borderRadius: 3, fontSize: 10 }}>T</kbd> for text, <kbd style={{ padding: '1px 4px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-light)', borderRadius: 3, fontSize: 10 }}>R</kbd> for shapes
+            </div>
           </div>
         )}
         {layers.map((layer: Layer) => (

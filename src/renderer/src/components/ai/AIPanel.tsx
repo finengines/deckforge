@@ -172,6 +172,23 @@ export function AIPanel(): React.JSX.Element {
       overflow: 'auto', padding: 12, fontSize: 12
     }}>
       <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>🤖 AI Panel</h3>
+      {providers.filter((p) => p.enabled).length === 0 && (
+        <div style={{
+          padding: 16, textAlign: 'center', background: 'var(--bg-tertiary)',
+          borderRadius: 'var(--radius)', marginBottom: 12, lineHeight: 1.6
+        }}>
+          <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.5 }}>🔑</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500, marginBottom: 4 }}>
+            No AI provider configured
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>
+            Add an API key in Settings to unlock AI features
+          </div>
+          <button className="btn btn-sm btn-primary" onClick={() => useEditorStore.getState().setView('settings')}>
+            ⚙️ Open Settings
+          </button>
+        </div>
+      )}
       {selectedCard && (
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
           Card: <strong>{selectedCard.name}</strong>

@@ -11,6 +11,9 @@ import { ExportView } from './components/export/ExportView'
 import { SettingsView } from './components/settings/SettingsView'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { ToastContainer } from './components/Toast'
+import { KeyboardShortcuts } from './components/KeyboardShortcuts'
+import { AboutDialog } from './components/AboutDialog'
+import { StatusBar } from './components/StatusBar'
 import './assets/app.css'
 
 function App(): React.JSX.Element {
@@ -45,7 +48,10 @@ function App(): React.JSX.Element {
         {view === 'export' && <ExportView />}
         {view === 'settings' && <SettingsView />}
       </div>
+      <StatusBar saveStatus={saveStatus} />
       <ToastContainer />
+      <KeyboardShortcuts />
+      <AboutDialog />
     </div>
   )
 }

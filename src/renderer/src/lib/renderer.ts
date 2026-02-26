@@ -8,6 +8,7 @@ import type { Deck, CardData, Layer, TextLayer, ShapeLayer, ImageLayer } from '.
 
 /** Convert mm to pixels at given DPI */
 function mmToPx(mm: number, dpi: number): number {
+  if (dpi <= 0) throw new Error('DPI must be positive')
   return Math.round((mm / 25.4) * dpi)
 }
 

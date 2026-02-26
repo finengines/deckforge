@@ -1,6 +1,7 @@
 import React from "react"
 import { useEditorStore } from '../../stores/editorStore'
 import type { EditorView, EditorMode } from '../../types'
+import { Tooltip } from '../Tooltip'
 
 interface ToolbarProps {
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error'
@@ -62,14 +63,14 @@ export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): React.JSX.Elemen
           {/* Design tools */}
           <div className="toolbar-group">
             {tools.map((t) => (
-              <button
-                key={t.id}
-                className={`btn btn-icon btn-sm tooltip ${mode === t.id ? 'btn-active' : ''}`}
-                onClick={() => setMode(t.id)}
-                data-tooltip={`${t.label} (${t.shortcut})`}
-              >
-                {t.icon}
-              </button>
+              <Tooltip key={t.id} text={`${t.label} (${t.shortcut})`} position="bottom">
+                <button
+                  className={`btn btn-icon btn-sm ${mode === t.id ? 'btn-active' : ''}`}
+                  onClick={() => setMode(t.id)}
+                >
+                  {t.icon}
+                </button>
+              </Tooltip>
             ))}
           </div>
 
@@ -126,20 +127,22 @@ export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): React.JSX.Elemen
 
       {/* Undo/Redo */}
       <div className="toolbar-group">
-        <button
-          className="btn btn-icon btn-sm btn-ghost tooltip"
-          onClick={() => useEditorStore.temporal.getState().undo()}
-          data-tooltip="Undo (⌘Z)"
-        >
-          ↩
-        </button>
-        <button
-          className="btn btn-icon btn-sm btn-ghost tooltip"
-          onClick={() => useEditorStore.temporal.getState().redo()}
-          data-tooltip="Redo (⌘⇧Z)"
-        >
-          ↪
-        </button>
+        <Tooltip text="Undo (⌘Z)" position="bottom">
+          <button
+            className="btn btn-icon btn-sm btn-ghost"
+            onClick={() => useEditorStore.temporal.getState().undo()}
+          >
+            ↩
+          </button>
+        </Tooltip>
+        <Tooltip text="Redo (⌘⇧Z)" position="bottom">
+          <button
+            className="btn btn-icon btn-sm btn-ghost"
+            onClick={() => useEditorStore.temporal.getState().redo()}
+          >
+            ↪
+          </button>
+        </Tooltip>
       </div>
     </div>
   )

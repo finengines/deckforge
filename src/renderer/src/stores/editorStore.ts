@@ -17,6 +17,14 @@ import type {
   CardTemplate
 } from '../types'
 
+/** Max length for names/descriptions to prevent UI overflow */
+const MAX_NAME_LENGTH = 200
+const MAX_DESCRIPTION_LENGTH = 2000
+
+function clampString(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max) : s
+}
+
 // Default card dimensions (standard Top Trumps)
 const DEFAULT_DIMENSIONS: CardDimensions = {
   width: 62,
@@ -157,17 +165,24 @@ export const useEditorStore = create<EditorStore>()(
 
       updateDeckName: (name) =>
         set((s) => {
-          if (s.currentDeck) s.currentDeck.name = name
+          if (s.currentDeck) s.currentDeck.name = clampString(name, MAX_NAME_LENGTH)
         }),
 
       updateDeckDescription: (desc) =>
         set((s) => {
-          if (s.currentDeck) s.currentDeck.description = desc
+          if (s.currentDeck) s.currentDeck.description = clampString(desc, MAX_DESCRIPTION_LENGTH)
         }),
 
       updateDimensions: (dims) =>
         set((s) => {
-          if (s.currentDeck) Object.assign(s.currentDeck.dimensions, dims)
+          if (!s.currentDeck) return
+          const clamped: Partial<CardDimensions> = { ...dims }
+          if (clamped.width !== undefined) clamped.width = Math.max(10, Math.min(500, clamped.width))
+          if (clamped.height !== undefined) clamped.height = Math.max(10, Math.min(500, clamped.height))
+          if (clamped.bleed !== undefined) clamped.bleed = Math.max(0, Math.min(20, clamped.bleed))
+          if (clamped.cornerRadius !== undefined) clamped.cornerRadius = Math.max(0, Math.min(50, clamped.cornerRadius))
+          if (clamped.dpi !== undefined) clamped.dpi = Math.max(72, Math.min(600, clamped.dpi))
+          Object.assign(s.currentDeck.dimensions, clamped)
         }),
 
       updateTheme: (theme) =>
@@ -179,7 +194,18 @@ export const useEditorStore = create<EditorStore>()(
       addCategory: (cat) =>
         set((s) => {
           if (!s.currentDeck) return
-          s.currentDeck.categories.push({ ...cat, id: uuid() })
+          // Prevent duplicate category names
+          const nameExists = s.currentDeck.categories.some(
+            (c) => c.name.toLowerCase() === cat.name.toLowerCase()
+          )
+          if (nameExists) return
+          s.currentDeck.categories.push({
+            ...cat,
+            id: uuid(),
+            name: clampString(cat.name, MAX_NAME_LENGTH),
+            min: Math.min(cat.min, cat.max),
+            max: Math.max(cat.min, cat.max)
+          })
         }),
 
       updateCategory: (id, updates) =>
@@ -210,17 +236,24 @@ export const useEditorStore = create<EditorStore>()(
       addCard: (partial) =>
         set((s) => {
           if (!s.currentDeck) return
+          const rawName = partial?.name ?? 'New Card'
           const card: CardData = {
             id: uuid(),
-            name: partial?.name ?? 'New Card',
+            name: clampString(rawName || 'Untitled Card', MAX_NAME_LENGTH),
             image: partial?.image,
-            description: partial?.description ?? '',
+            description: clampString(partial?.description ?? '', MAX_DESCRIPTION_LENGTH),
             funFact: partial?.funFact ?? '',
             stats: partial?.stats ?? {},
             customFields: partial?.customFields ?? {},
             aiGenerated: partial?.aiGenerated ?? {},
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
+          }
+          // Clamp stat values to category bounds
+          for (const cat of s.currentDeck.categories) {
+            if (card.stats[cat.id] !== undefined) {
+              card.stats[cat.id] = Math.max(cat.min, Math.min(cat.max, card.stats[cat.id]))
+            }
           }
           s.currentDeck.cards.push(card)
           s.selectedCardId = card.id
@@ -379,7 +412,10 @@ export const useEditorStore = create<EditorStore>()(
 
       setPanOffset: (offset) =>
         set((s) => {
-          s.panOffset = offset
+          s.panOffset = {
+            x: Math.max(-10000, Math.min(10000, offset.x)),
+            y: Math.max(-10000, Math.min(10000, offset.y))
+          }
         }),
 
       setEditingSide: (side) =>
@@ -395,7 +431,7 @@ export const useEditorStore = create<EditorStore>()(
 
       setGridSize: (size) =>
         set((s) => {
-          s.gridSize = size
+          s.gridSize = Math.max(1, Math.min(100, size))
         }),
 
       toggleRulers: () =>
