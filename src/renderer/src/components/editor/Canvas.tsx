@@ -63,6 +63,8 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
 
   const [snapLines, setSnapLines] = useState<SnapLine[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
+  const [isPanning, setIsPanning] = useState(false)
+  const panStartRef = useRef<{ x: number; y: number } | null>(null)
   const { menu, showMenu, hideMenu } = useContextMenu()
   const [cropTarget, setCropTarget] = useState<{ src: string; width: number; height: number; layerId: string } | null>(null)
 
@@ -230,6 +232,40 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
             useEditorStore.getState().setMode('select')
           }
           input.click()
+          return
+        }
+
+        if (currentMode === 'shape') {
+          // Create a rectangle at click position
+          const stage = e.target.getStage()!
+          const pointer = stage.getPointerPosition()!
+          const x = (pointer.x - panOffset.x) / zoom / SCREEN_SCALE
+          const y = (pointer.y - panOffset.y) / zoom / SCREEN_SCALE
+          const newLayer: ShapeLayer = {
+            id: uuid(),
+            type: 'shape',
+            name: 'Rectangle',
+            x,
+            y,
+            width: 30,
+            height: 20,
+            rotation: 0,
+            opacity: 1,
+            visible: true,
+            locked: false,
+            shapeKind: 'rect',
+            fill: '#4a9eff',
+            stroke: '#000000',
+            strokeWidth: 0.5,
+            cornerRadius: 1
+          }
+          addLayer(newLayer)
+          useEditorStore.getState().setMode('select')
+          return
+        }
+
+        if (currentMode === 'pan') {
+          // Pan mode: clicking empty area does nothing (drag handled separately)
           return
         }
 
@@ -491,7 +527,31 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
         onClick={handleStageClick}
         onContextMenu={handleContextMenu}
         onWheel={handleWheel}
-        style={{ marginLeft: showRulers ? 24 : 0, marginTop: showRulers ? 24 : 0 }}
+        onMouseDown={(e) => {
+          const currentMode = useEditorStore.getState().mode
+          if (currentMode === 'pan' || e.evt.button === 1) {
+            setIsPanning(true)
+            panStartRef.current = { x: e.evt.clientX, y: e.evt.clientY }
+            e.evt.preventDefault()
+          }
+        }}
+        onMouseMove={(e) => {
+          if (isPanning && panStartRef.current) {
+            const dx = e.evt.clientX - panStartRef.current.x
+            const dy = e.evt.clientY - panStartRef.current.y
+            panStartRef.current = { x: e.evt.clientX, y: e.evt.clientY }
+            setPanOffset({ x: panOffset.x + dx, y: panOffset.y + dy })
+          }
+        }}
+        onMouseUp={() => {
+          setIsPanning(false)
+          panStartRef.current = null
+        }}
+        style={{
+          marginLeft: showRulers ? 24 : 0,
+          marginTop: showRulers ? 24 : 0,
+          cursor: mode === 'pan' ? (isPanning ? 'grabbing' : 'grab') : 'default'
+        }}
       >
         <Layer x={offsetX} y={offsetY} scaleX={zoom} scaleY={zoom}>
           {/* Bleed area */}
