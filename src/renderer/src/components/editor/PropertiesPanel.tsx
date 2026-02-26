@@ -1,0 +1,302 @@
+import { useEditorStore } from '../../stores/editorStore'
+import type { Layer, TextLayer, ShapeLayer } from '../../types'
+
+export function PropertiesPanel(): JSX.Element {
+  const deck = useEditorStore((s) => s.currentDeck)
+  const editingSide = useEditorStore((s) => s.editingSide)
+  const selectedLayerIds = useEditorStore((s) => s.selectedLayerIds)
+  const updateLayer = useEditorStore((s) => s.updateLayer)
+
+  if (!deck) return <div className="panel" />
+
+  const template = editingSide === 'front' ? deck.frontTemplate : deck.backTemplate
+  const allLayers = template.frontLayers
+
+  const findLayer = (layers: Layer[], id: string): Layer | undefined => {
+    for (const l of layers) {
+      if (l.id === id) return l
+      if (l.type === 'group') {
+        const found = findLayer(l.children, id)
+        if (found) return found
+      }
+    }
+    return undefined
+  }
+
+  const selectedLayer =
+    selectedLayerIds.length === 1 ? findLayer(allLayers, selectedLayerIds[0]) : undefined
+
+  if (!selectedLayer) {
+    return (
+      <div className="panel">
+        <div className="panel-header">Properties</div>
+        <div className="panel-content">
+          <div style={{ color: 'var(--text-muted)', fontSize: 11, padding: 8 }}>
+            Select a layer to edit its properties
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const update = (updates: Partial<Layer>): void => {
+    updateLayer(selectedLayer.id, updates)
+  }
+
+  return (
+    <div className="panel">
+      <div className="panel-header">Properties</div>
+      <div className="panel-content">
+        {/* Name */}
+        <div className="form-group">
+          <label className="input-label">Name</label>
+          <input
+            className="input"
+            value={selectedLayer.name}
+            onChange={(e) => update({ name: e.target.value })}
+          />
+        </div>
+
+        {/* Position */}
+        <div className="form-group">
+          <label className="input-label">Position (mm)</label>
+          <div className="form-row">
+            <input
+              className="input"
+              type="number"
+              value={selectedLayer.x}
+              onChange={(e) => update({ x: parseFloat(e.target.value) || 0 })}
+              style={{ width: '50%' }}
+              placeholder="X"
+            />
+            <input
+              className="input"
+              type="number"
+              value={selectedLayer.y}
+              onChange={(e) => update({ y: parseFloat(e.target.value) || 0 })}
+              style={{ width: '50%' }}
+              placeholder="Y"
+            />
+          </div>
+        </div>
+
+        {/* Size */}
+        <div className="form-group">
+          <label className="input-label">Size (mm)</label>
+          <div className="form-row">
+            <input
+              className="input"
+              type="number"
+              value={selectedLayer.width}
+              onChange={(e) => update({ width: parseFloat(e.target.value) || 0 })}
+              style={{ width: '50%' }}
+              placeholder="W"
+            />
+            <input
+              className="input"
+              type="number"
+              value={selectedLayer.height}
+              onChange={(e) => update({ height: parseFloat(e.target.value) || 0 })}
+              style={{ width: '50%' }}
+              placeholder="H"
+            />
+          </div>
+        </div>
+
+        {/* Rotation & Opacity */}
+        <div className="form-group">
+          <div className="form-row">
+            <div style={{ flex: 1 }}>
+              <label className="input-label">Rotation</label>
+              <input
+                className="input"
+                type="number"
+                value={selectedLayer.rotation}
+                onChange={(e) => update({ rotation: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="input-label">Opacity</label>
+              <input
+                className="input"
+                type="number"
+                min={0}
+                max={1}
+                step={0.1}
+                value={selectedLayer.opacity}
+                onChange={(e) => update({ opacity: parseFloat(e.target.value) || 1 })}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Data binding */}
+        <div className="form-group">
+          <label className="input-label">Bind to card data</label>
+          <select
+            className="input"
+            value={selectedLayer.bindTo ?? ''}
+            onChange={(e) => update({ bindTo: e.target.value || undefined })}
+          >
+            <option value="">None</option>
+            <option value="name">Card Name</option>
+            <option value="description">Description</option>
+            <option value="funFact">Fun Fact</option>
+            <option value="image">Card Image</option>
+            {deck.categories.map((cat) => (
+              <option key={cat.id} value={`stat:${cat.id}`}>
+                Stat: {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Type-specific properties */}
+        {selectedLayer.type === 'text' && (
+          <TextProperties layer={selectedLayer as TextLayer} onUpdate={update} />
+        )}
+        {selectedLayer.type === 'shape' && (
+          <ShapeProperties layer={selectedLayer as ShapeLayer} onUpdate={update} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TextProperties({
+  layer,
+  onUpdate
+}: {
+  layer: TextLayer
+  onUpdate: (u: Partial<TextLayer>) => void
+}): JSX.Element {
+  return (
+    <>
+      <div className="form-group">
+        <label className="input-label">Text</label>
+        <textarea
+          className="input"
+          rows={3}
+          value={layer.text}
+          onChange={(e) => onUpdate({ text: e.target.value })}
+          style={{ resize: 'vertical' }}
+        />
+      </div>
+      <div className="form-group">
+        <label className="input-label">Font</label>
+        <input
+          className="input"
+          value={layer.fontFamily}
+          onChange={(e) => onUpdate({ fontFamily: e.target.value })}
+        />
+      </div>
+      <div className="form-group">
+        <div className="form-row">
+          <div style={{ flex: 1 }}>
+            <label className="input-label">Size (mm)</label>
+            <input
+              className="input"
+              type="number"
+              value={layer.fontSize}
+              onChange={(e) => onUpdate({ fontSize: parseFloat(e.target.value) || 4 })}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label className="input-label">Color</label>
+            <input
+              type="color"
+              value={layer.fill}
+              onChange={(e) => onUpdate({ fill: e.target.value })}
+              style={{ width: '100%', height: 28, padding: 0, border: 'none' }}
+            />
+          </div>
+        </div>
+      </div>
+      <div className="form-group">
+        <label className="input-label">Align</label>
+        <div className="form-row">
+          {(['left', 'center', 'right'] as const).map((align) => (
+            <button
+              key={align}
+              className={`btn btn-sm ${layer.align === align ? 'btn-active' : ''}`}
+              onClick={() => onUpdate({ align })}
+              style={{ flex: 1 }}
+            >
+              {align === 'left' ? '⬅' : align === 'center' ? '⬛' : '➡'}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="form-group">
+        <label className="input-label">Weight</label>
+        <select
+          className="input"
+          value={layer.fontWeight}
+          onChange={(e) => onUpdate({ fontWeight: e.target.value })}
+        >
+          <option value="300">Light</option>
+          <option value="400">Regular</option>
+          <option value="500">Medium</option>
+          <option value="600">Semibold</option>
+          <option value="700">Bold</option>
+          <option value="800">Extra Bold</option>
+        </select>
+      </div>
+    </>
+  )
+}
+
+function ShapeProperties({
+  layer,
+  onUpdate
+}: {
+  layer: ShapeLayer
+  onUpdate: (u: Partial<ShapeLayer>) => void
+}): JSX.Element {
+  return (
+    <>
+      <div className="form-group">
+        <div className="form-row">
+          <div style={{ flex: 1 }}>
+            <label className="input-label">Fill</label>
+            <input
+              type="color"
+              value={layer.fill}
+              onChange={(e) => onUpdate({ fill: e.target.value })}
+              style={{ width: '100%', height: 28, padding: 0, border: 'none' }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label className="input-label">Stroke</label>
+            <input
+              type="color"
+              value={layer.stroke}
+              onChange={(e) => onUpdate({ stroke: e.target.value })}
+              style={{ width: '100%', height: 28, padding: 0, border: 'none' }}
+            />
+          </div>
+        </div>
+      </div>
+      <div className="form-group">
+        <label className="input-label">Stroke Width</label>
+        <input
+          className="input"
+          type="number"
+          min={0}
+          value={layer.strokeWidth}
+          onChange={(e) => onUpdate({ strokeWidth: parseFloat(e.target.value) || 0 })}
+        />
+      </div>
+      <div className="form-group">
+        <label className="input-label">Corner Radius</label>
+        <input
+          className="input"
+          type="number"
+          min={0}
+          value={layer.cornerRadius ?? 0}
+          onChange={(e) => onUpdate({ cornerRadius: parseFloat(e.target.value) || 0 })}
+        />
+      </div>
+    </>
+  )
+}
