@@ -5,19 +5,33 @@ import { builtInTemplates } from '../../lib/templates'
 import type { CardTemplate } from '../../types'
 
 const TEMPLATE_COLORS: Record<string, string> = {
-  'builtin-classic-top-trumps': '#e94560',
-  'builtin-modern-minimal': '#2196F3',
-  'builtin-bold-stats': '#FF6B35',
-  'builtin-photo-card': '#4CAF50',
-  'builtin-trading-card': '#C9A84C'
+  'tt-classic': '#0D47A1',
+  'tt-sports-star': '#D32F2F',
+  'tt-animals-nature': '#2E7D32',
+  'tt-speed-machines': '#F44336',
+  'tt-superheroes': '#FF6F00',
+  'tt-space-explorer': '#00E5FF',
+  'tt-history-legends': '#8D6E63',
+  'tt-food-cooking': '#E65100',
+  'tt-music-culture': '#9C27B0',
+  'tt-kids-cartoon': '#FF5722',
+  'tt-photo-minimal': '#607D8B',
+  'tt-premium-gold': '#C9A84C'
 }
 
 const TEMPLATE_ICONS: Record<string, string> = {
-  'builtin-classic-top-trumps': '🃏',
-  'builtin-modern-minimal': '✨',
-  'builtin-bold-stats': '💪',
-  'builtin-photo-card': '📷',
-  'builtin-trading-card': '⚔️'
+  'tt-classic': '🃏',
+  'tt-sports-star': '⚽',
+  'tt-animals-nature': '🦁',
+  'tt-speed-machines': '🏎️',
+  'tt-superheroes': '🦸',
+  'tt-space-explorer': '🚀',
+  'tt-history-legends': '📜',
+  'tt-food-cooking': '🍳',
+  'tt-music-culture': '🎵',
+  'tt-kids-cartoon': '🎨',
+  'tt-photo-minimal': '📷',
+  'tt-premium-gold': '👑'
 }
 
 export function TemplatePicker(): React.JSX.Element {

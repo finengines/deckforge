@@ -7,6 +7,7 @@ import { LayerPanel } from './components/editor/LayerPanel'
 import { PropertiesPanel } from './components/editor/PropertiesPanel'
 import { DeckPanel } from './components/deck/DeckPanel'
 import { DataView } from './components/deck/DataView'
+import { ScoreView } from './components/deck/ScoreView'
 import { ExportView } from './components/export/ExportView'
 import { SettingsView } from './components/settings/SettingsView'
 import { WelcomeScreen } from './components/WelcomeScreen'
@@ -45,6 +46,7 @@ function App(): React.JSX.Element {
           </>
         )}
         {view === 'data' && <DataView />}
+        {view === 'score' && <ScoreView />}
         {view === 'export' && <ExportView />}
         {view === 'settings' && <SettingsView />}
       </div>

@@ -10,6 +10,7 @@ interface ToolbarProps {
 const views: { id: EditorView; label: string; icon: string }[] = [
   { id: 'design', label: 'Design', icon: '◆' },
   { id: 'data', label: 'Data', icon: '☰' },
+  { id: 'score', label: 'Score', icon: '🎯' },
   { id: 'export', label: 'Export', icon: '⎙' },
   { id: 'settings', label: 'Settings', icon: '⚙' }
 ]
@@ -28,10 +29,12 @@ export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): React.JSX.Elemen
   const zoom = useEditorStore((s) => s.zoom)
   const deckName = useEditorStore((s) => s.currentDeck?.name ?? '')
   const editingSide = useEditorStore((s) => s.editingSide)
+  const showLayoutGuides = useEditorStore((s) => s.showLayoutGuides)
   const setView = useEditorStore((s) => s.setView)
   const setMode = useEditorStore((s) => s.setMode)
   const setZoom = useEditorStore((s) => s.setZoom)
   const setEditingSide = useEditorStore((s) => s.setEditingSide)
+  const toggleLayoutGuides = useEditorStore((s) => s.toggleLayoutGuides)
 
   return (
     <div className="toolbar">
@@ -111,6 +114,20 @@ export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): React.JSX.Elemen
             >
               +
             </button>
+          </div>
+
+          <div className="toolbar-separator" />
+
+          {/* Layout Guides */}
+          <div className="toolbar-group">
+            <Tooltip text="Toggle layout guides" position="bottom">
+              <button
+                className={`btn btn-sm ${showLayoutGuides ? 'btn-active' : 'btn-ghost'}`}
+                onClick={toggleLayoutGuides}
+              >
+                📐 Guides
+              </button>
+            </Tooltip>
           </div>
         </>
       )}

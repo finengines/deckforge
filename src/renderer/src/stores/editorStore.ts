@@ -99,6 +99,8 @@ interface EditorStore extends EditorState {
   setGridSize: (size: number) => void
   toggleRulers: () => void
   toggleGuides: () => void
+  setShowLayoutGuides: (val: boolean) => void
+  toggleLayoutGuides: () => void
 }
 
 export const useEditorStore = create<EditorStore>()(
@@ -117,6 +119,7 @@ export const useEditorStore = create<EditorStore>()(
       gridSize: 10,
       showRulers: true,
       showGuides: true,
+      showLayoutGuides: false,
 
       // --- View ---
       setView: (view) =>
@@ -442,6 +445,16 @@ export const useEditorStore = create<EditorStore>()(
       toggleGuides: () =>
         set((s) => {
           s.showGuides = !s.showGuides
+        }),
+
+      setShowLayoutGuides: (val: boolean) =>
+        set((s) => {
+          s.showLayoutGuides = val
+        }),
+
+      toggleLayoutGuides: () =>
+        set((s) => {
+          s.showLayoutGuides = !s.showLayoutGuides
         })
     })),
     { limit: 100 }

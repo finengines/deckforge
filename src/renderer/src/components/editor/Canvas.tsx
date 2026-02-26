@@ -9,6 +9,7 @@ import { ComponentLayerRenderer } from './ComponentLayerRenderer'
 import { useImage } from '../../hooks/useImage'
 import { snapToGrid, getSnapLines, type SnapLine } from '../../lib/snapping'
 import { Rulers } from './Rulers'
+import { LayoutGuides } from './LayoutGuides'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { ContextMenu } from '../ContextMenu'
 import { ImageCropDialog, type CropParams } from '../ImageCropDialog'
@@ -54,6 +55,7 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
   const snapEnabled = useEditorStore((s) => s.snapToGrid)
   const gridSize = useEditorStore((s) => s.gridSize)
   const showRulers = useEditorStore((s) => s.showRulers)
+  const showLayoutGuides = useEditorStore((s) => s.showLayoutGuides)
   const selectLayers = useEditorStore((s) => s.selectLayers)
   const updateLayer = useEditorStore((s) => s.updateLayer)
   const setPanOffset = useEditorStore((s) => s.setPanOffset)
@@ -613,6 +615,17 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
             }}
           />
         </Layer>
+        {showLayoutGuides && (
+          <LayoutGuides
+            cardWidth={dims.width}
+            cardHeight={dims.height}
+            bleed={dims.bleed}
+            screenScale={SCREEN_SCALE}
+            offsetX={offsetX}
+            offsetY={offsetY}
+            zoom={zoom}
+          />
+        )}
       </Stage>
 
       <ContextMenu visible={menu.visible} x={menu.x} y={menu.y} items={menu.items} onClose={hideMenu} />

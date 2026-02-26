@@ -300,7 +300,7 @@ export interface AISettings {
 // --- App State ---
 
 export type EditorMode = 'select' | 'text' | 'shape' | 'image' | 'pan' | 'zoom'
-export type EditorView = 'design' | 'data' | 'export' | 'settings'
+export type EditorView = 'design' | 'data' | 'score' | 'export' | 'settings'
 
 export interface EditorState {
   /** Current view/tab */
@@ -327,4 +327,6 @@ export interface EditorState {
   showRulers: boolean
   /** Show guides */
   showGuides: boolean
+  /** Show layout guides overlay */
+  showLayoutGuides: boolean
 }

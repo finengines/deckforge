@@ -5,16 +5,23 @@ import type { LayerType } from '../types'
 const VALID_LAYER_TYPES: LayerType[] = ['text', 'image', 'shape', 'group', 'component']
 
 describe('builtInTemplates', () => {
-  it('returns exactly 5 templates', () => {
-    expect(builtInTemplates).toHaveLength(5)
+  it('returns exactly 12 templates', () => {
+    expect(builtInTemplates).toHaveLength(12)
   })
 
   it.each([
-    ['builtin-classic-top-trumps', 'Classic Top Trumps'],
-    ['builtin-modern-minimal', 'Modern Minimal'],
-    ['builtin-bold-stats', 'Bold Stats'],
-    ['builtin-photo-card', 'Photo Card'],
-    ['builtin-trading-card', 'Trading Card']
+    ['tt-classic', 'Classic TT'],
+    ['tt-sports-star', 'Sports Star'],
+    ['tt-animals-nature', 'Animals & Nature'],
+    ['tt-speed-machines', 'Speed Machines'],
+    ['tt-superheroes', 'Superheroes'],
+    ['tt-space-explorer', 'Space Explorer'],
+    ['tt-history-legends', 'History Legends'],
+    ['tt-food-cooking', 'Food & Cooking'],
+    ['tt-music-culture', 'Music & Culture'],
+    ['tt-kids-cartoon', 'Kids Cartoon'],
+    ['tt-photo-minimal', 'Photo Minimal'],
+    ['tt-premium-gold', 'Premium Gold']
   ])('has template %s named %s', (id, name) => {
     const t = builtInTemplates.find((t) => t.id === id)
     expect(t).toBeDefined()
@@ -75,6 +82,42 @@ describe('builtInTemplates', () => {
     }
   })
 
+  it('all templates bind to "image"', () => {
+    for (const t of builtInTemplates) {
+      const imageLayer = t.frontLayers.find((l) => l.bindTo === 'image')
+      expect(imageLayer).toBeDefined()
+    }
+  })
+
+  it('all templates bind to "description"', () => {
+    for (const t of builtInTemplates) {
+      const descLayer = t.frontLayers.find((l) => l.bindTo === 'description')
+      expect(descLayer).toBeDefined()
+    }
+  })
+
+  it('all templates bind to "funFact"', () => {
+    for (const t of builtInTemplates) {
+      const funFactLayer = t.frontLayers.find((l) => l.bindTo === 'funFact')
+      expect(funFactLayer).toBeDefined()
+    }
+  })
+
+  it('all templates have 5 stat bindings (stat:0 through stat:4)', () => {
+    for (const t of builtInTemplates) {
+      for (let i = 0; i < 5; i++) {
+        const statLayer = t.frontLayers.find((l) => l.bindTo === `stat:${i}`)
+        expect(statLayer, `Template "${t.name}" missing stat:${i}`).toBeDefined()
+      }
+    }
+  })
+
+  it('all templates have at least 8 layers', () => {
+    for (const t of builtInTemplates) {
+      expect(t.frontLayers.length, `Template "${t.name}" has too few layers`).toBeGreaterThanOrEqual(8)
+    }
+  })
+
   it('backLayers is null for all built-in templates', () => {
     for (const t of builtInTemplates) {
       expect(t.backLayers).toBeNull()
@@ -84,9 +127,9 @@ describe('builtInTemplates', () => {
 
 describe('getTemplateById', () => {
   it('returns the correct template', () => {
-    const t = getTemplateById('builtin-classic-top-trumps')
+    const t = getTemplateById('tt-classic')
     expect(t).toBeDefined()
-    expect(t!.name).toBe('Classic Top Trumps')
+    expect(t!.name).toBe('Classic TT')
   })
 
   it('returns undefined for unknown id', () => {
