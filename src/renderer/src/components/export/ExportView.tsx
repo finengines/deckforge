@@ -1,9 +1,89 @@
+import { useState, useCallback } from 'react'
 import { usePrintStore } from '../../stores/printStore'
 import { useEditorStore } from '../../stores/editorStore'
+import { generatePDF, generateTestSheet, type GeneratePDFProgress } from '../../lib/pdf'
+import { exportAllCards } from '../../lib/renderer'
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function downloadBytes(bytes: Uint8Array, filename: string): void {
+  downloadBlob(new Blob([bytes], { type: 'application/pdf' }), filename)
+}
 
 export function ExportView(): JSX.Element {
   const deck = useEditorStore((s) => s.currentDeck)
   const settings = usePrintStore()
+
+  const [exporting, setExporting] = useState(false)
+  const [progress, setProgress] = useState('')
+  const [error, setError] = useState('')
+
+  const handleExportPDF = useCallback(async () => {
+    if (!deck) return
+    setExporting(true)
+    setError('')
+    try {
+      const bytes = await generatePDF(deck, settings, (p: GeneratePDFProgress) => {
+        if (p.phase === 'rendering') {
+          setProgress(`Rendering cards… ${p.current + 1}/${p.total}`)
+        } else {
+          setProgress(`Composing pages… ${p.current + 1}/${p.total}`)
+        }
+      })
+      downloadBytes(bytes, `${deck.name}.pdf`)
+      setProgress('✅ PDF exported!')
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setExporting(false)
+    }
+  }, [deck, settings])
+
+  const handleExportImages = useCallback(async () => {
+    if (!deck) return
+    setExporting(true)
+    setError('')
+    try {
+      const format = settings.format === 'jpeg' ? 'jpeg' : 'png'
+      const blobs = await exportAllCards(deck, format, settings.dpi, (cur, tot) => {
+        setProgress(`Exporting card ${cur + 1}/${tot}…`)
+      })
+      // Download each
+      for (let i = 0; i < blobs.length; i++) {
+        const card = deck.cards[i]
+        const ext = format === 'jpeg' ? 'jpg' : 'png'
+        downloadBlob(blobs[i], `${card.name.replace(/[^a-zA-Z0-9]/g, '_')}_front.${ext}`)
+      }
+      setProgress(`✅ Exported ${blobs.length} card images!`)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setExporting(false)
+    }
+  }, [deck, settings])
+
+  const handleTestSheet = useCallback(async () => {
+    if (!deck) return
+    setExporting(true)
+    setError('')
+    try {
+      setProgress('Generating test sheet…')
+      const bytes = await generateTestSheet(settings, deck.dimensions)
+      downloadBytes(bytes, `${deck.name}_test_sheet.pdf`)
+      setProgress('✅ Test sheet exported!')
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setExporting(false)
+    }
+  }, [deck, settings])
 
   if (!deck) return <div />
 
@@ -111,17 +191,6 @@ export function ExportView(): JSX.Element {
               </label>
             </div>
 
-            <div className="form-group">
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={settings.testSheet}
-                  onChange={(e) => settings.updateSettings({ testSheet: e.target.checked })}
-                />
-                Generate test sheet (outlines only)
-              </label>
-            </div>
-
             <h3 style={{ fontSize: 13, fontWeight: 600, margin: '16px 0 12px' }}>
               Print Alignment (mm)
             </h3>
@@ -186,11 +255,36 @@ export function ExportView(): JSX.Element {
             </button>
           </div>
 
-          <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-            <button className="btn btn-primary" style={{ flex: 1 }}>
-              📄 Export {deck.cards.length} Cards
+          {/* Action buttons */}
+          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button className="btn btn-primary" onClick={handleExportPDF} disabled={exporting}>
+              📄 Export {deck.cards.length} Cards as PDF
+            </button>
+            <button className="btn" onClick={handleExportImages} disabled={exporting}>
+              🖼️ Export All Cards as Images
+            </button>
+            <button className="btn" onClick={handleTestSheet} disabled={exporting}>
+              📐 Generate Test Sheet
             </button>
           </div>
+
+          {/* Progress / Error */}
+          {progress && (
+            <div style={{
+              marginTop: 12, padding: 10, background: 'var(--bg-secondary)',
+              borderRadius: 'var(--radius)', fontSize: 12
+            }}>
+              {progress}
+            </div>
+          )}
+          {error && (
+            <div style={{
+              marginTop: 12, padding: 10, background: '#2a1515',
+              borderRadius: 'var(--radius)', fontSize: 12, color: '#ff6b6b'
+            }}>
+              ⚠ {error}
+            </div>
+          )}
         </div>
 
         {/* Preview */}
@@ -211,7 +305,8 @@ export function ExportView(): JSX.Element {
               <div style={{ fontSize: 48, marginBottom: 12 }}>📄</div>
               <p>Print preview will appear here</p>
               <p style={{ fontSize: 11, marginTop: 4 }}>
-                {deck.cards.length} cards • {deck.dimensions.width}×{deck.dimensions.height}mm
+                {deck.cards.length} cards • {deck.dimensions.width}×{deck.dimensions.height}mm •{' '}
+                {settings.dpi} DPI
               </p>
             </div>
           </div>

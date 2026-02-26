@@ -2,7 +2,8 @@ import { useRef, useCallback, useEffect, useState } from 'react'
 import { Stage, Layer, Rect, Text, Line, Image as KonvaImage, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { useEditorStore } from '../../stores/editorStore'
-import type { Layer as LayerType, TextLayer, ShapeLayer, ImageLayer } from '../../types'
+import type { Layer as LayerType, TextLayer, ShapeLayer, ImageLayer, ComponentLayer as ComponentLayerType } from '../../types'
+import { ComponentLayerRenderer } from './ComponentLayerRenderer'
 import { useImage } from '../../hooks/useImage'
 import { snapToGrid, getSnapLines, type SnapLine } from '../../lib/snapping'
 import { Rulers } from './Rulers'
@@ -39,6 +40,7 @@ export function Canvas(): JSX.Element {
   const transformerRef = useRef<Konva.Transformer>(null)
 
   const deck = useEditorStore((s) => s.currentDeck)
+  const selectedCardId = useEditorStore((s) => s.selectedCardId)
   const selectedLayerIds = useEditorStore((s) => s.selectedLayerIds)
   const editingSide = useEditorStore((s) => s.editingSide)
   const zoom = useEditorStore((s) => s.zoom)
@@ -244,6 +246,17 @@ export function Canvas(): JSX.Element {
       }
       case 'image': {
         return <ImageLayerNode layer={layer as ImageLayer} commonProps={commonProps} />
+      }
+      case 'component': {
+        const cl = layer as ComponentLayerType
+        const currentCard = deck.cards.find((c) => c.id === selectedCardId) ?? null
+        return (
+          <ComponentLayerRenderer
+            key={layer.id}
+            layer={cl}
+            cardData={currentCard}
+          />
+        )
       }
       default:
         return null
