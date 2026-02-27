@@ -38,13 +38,19 @@ export function WelcomeScreen(): React.JSX.Element {
   }
 
   const handleOpenDeck = async (id: string): Promise<void> => {
+    console.log('[WelcomeScreen] Opening deck:', id)
     try {
       const result = await window.api.deck.load(id)
+      console.log('[WelcomeScreen] Load result:', result?.success, result?.error)
       if (result.success && result.data) {
         loadDeck(result.data)
+      } else {
+        console.error('Failed to load deck:', result.error)
+        alert(`Failed to open deck: ${result.error || 'Unknown error'}`)
       }
     } catch (err) {
       console.error('Failed to load deck:', err)
+      alert(`Failed to open deck: ${err}`)
     }
   }
 
