@@ -153,12 +153,13 @@ function ComponentCanvas(): React.JSX.Element {
     <div
       ref={containerRef}
       style={{
-        flex: 1,
+        flex: '1 1 0px',
         display: 'flex',
         flexDirection: 'column',
         background: '#1a1a1a',
         overflow: 'hidden',
-        minWidth: 0
+        minWidth: 0,
+        width: 0
       }}
     >
       {/* Zoom controls */}
@@ -723,7 +724,7 @@ function ComponentLibraryView(): React.JSX.Element {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0px', minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
       {/* Header */}
       <div style={{
         height: 56,
@@ -731,7 +732,8 @@ function ComponentLibraryView(): React.JSX.Element {
         display: 'flex',
         alignItems: 'center',
         padding: '0 16px',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
+        flexShrink: 0
       }}>
         <h2 style={{ fontSize: 16, fontWeight: 700 }}>🧩 Component Library</h2>
         <button className="btn btn-primary btn-sm" onClick={handleNewComponent}>
@@ -1102,7 +1104,7 @@ export function ComponentEditor(): React.JSX.Element {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0px', minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
       <ComponentEditorToolbar />
       {/* AI Prompts button bar */}
       <div style={{
