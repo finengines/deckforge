@@ -16,14 +16,6 @@ const tabs: { id: TabId; label: string; icon: string }[] = [
 
 export function RightPanelTabs(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<TabId>('layers')
-  const selectedLayerIds = useEditorStore((s) => s.selectedLayerIds)
-
-  // Auto-switch to properties when a layer is selected
-  React.useEffect(() => {
-    if (selectedLayerIds.length > 0) {
-      setActiveTab('properties')
-    }
-  }, [selectedLayerIds])
 
   const currentIndex = tabs.findIndex((t) => t.id === activeTab)
 

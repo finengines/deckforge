@@ -16,12 +16,14 @@ import { AboutDialog } from './components/AboutDialog'
 import { StatusBar } from './components/StatusBar'
 import { RightPanelTabs } from './components/editor/RightPanelTabs'
 import { TutorialOverlay } from './components/TutorialOverlay'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import './assets/app.css'
 
 function App(): React.JSX.Element {
   const view = useEditorStore((s) => s.view)
   const currentDeck = useEditorStore((s) => s.currentDeck)
   const { saveStatus } = useDeckPersistence()
+  useKeyboardShortcuts()
 
   if (!currentDeck) {
     return (
