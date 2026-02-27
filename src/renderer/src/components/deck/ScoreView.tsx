@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
+import { CompletenessChecker } from './CompletenessChecker'
+import { BalanceAnalyzer } from './BalanceAnalyzer'
 
 /** Get a color between red→yellow→green based on 0-1 ratio */
 function valueColor(ratio: number): string {
@@ -23,6 +25,8 @@ export function ScoreView(): React.JSX.Element {
   const [currentIdx, setCurrentIdx] = useState(0)
   const [direction, setDirection] = useState<'left' | 'right' | null>(null)
   const [localStats, setLocalStats] = useState<Record<string, number>>({})
+  const [showHealthCheck, setShowHealthCheck] = useState(false)
+  const [showBalanceAnalyzer, setShowBalanceAnalyzer] = useState(false)
   const animRef = useRef<HTMLDivElement>(null)
 
   // Sync order when cards change
@@ -190,7 +194,39 @@ export function ScoreView(): React.JSX.Element {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'center' }}>
         <button className="btn btn-sm btn-ghost" onClick={handleShuffle}>🔀 Shuffle</button>
         <button className="btn btn-sm btn-ghost" onClick={handleAutoFill}>🎲 Auto-fill remaining</button>
+        <button
+          className={`btn btn-sm ${showHealthCheck ? 'btn-active' : 'btn-ghost'}`}
+          onClick={() => {
+            setShowHealthCheck(!showHealthCheck)
+            if (!showHealthCheck) setShowBalanceAnalyzer(false)
+          }}
+        >
+          🏥 Health Check
+        </button>
+        <button
+          className={`btn btn-sm ${showBalanceAnalyzer ? 'btn-active' : 'btn-ghost'}`}
+          onClick={() => {
+            setShowBalanceAnalyzer(!showBalanceAnalyzer)
+            if (!showBalanceAnalyzer) setShowHealthCheck(false)
+          }}
+        >
+          ⚖️ Balance
+        </button>
       </div>
+
+      {/* Deck Health Check */}
+      {showHealthCheck && (
+        <div style={{ marginBottom: 16 }}>
+          <CompletenessChecker />
+        </div>
+      )}
+
+      {/* Balance Analyzer */}
+      {showBalanceAnalyzer && (
+        <div style={{ marginBottom: 16 }}>
+          <BalanceAnalyzer />
+        </div>
+      )}
 
       {/* Main card area */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, flex: 1, minHeight: 0 }}>

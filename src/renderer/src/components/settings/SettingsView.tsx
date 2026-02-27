@@ -4,6 +4,7 @@ import { useAssetStore } from '../../stores/assetStore'
 import { useEditorStore } from '../../stores/editorStore'
 import type { AIProvider } from '../../types'
 import { builtInThemes, applyTheme, getThemeById } from '../../lib/themes'
+import { generateText } from '../../lib/ai'
 
 const FONT_OPTIONS = [
   'Inter, sans-serif',
@@ -39,6 +40,34 @@ export function SettingsView(): React.JSX.Element {
   const assetStore = useAssetStore()
   const [activeThemeId, setActiveThemeId] = useState('dark')
   const [useGradient, setUseGradient] = useState(false)
+  const [paletteKeyword, setPaletteKeyword] = useState('')
+  const [generatingPalette, setGeneratingPalette] = useState(false)
+
+  const handleGeneratePalette = async (): Promise<void> => {
+    if (!paletteKeyword.trim() || generatingPalette) return
+    setGeneratingPalette(true)
+    try {
+      const prompt = `Generate a color palette of 5 hex colors for a card game with theme: "${paletteKeyword}". Return ONLY a JSON object with keys: primary, secondary, background, text, accent. Example: {"primary":"#1a1a2e","secondary":"#16213e","background":"#0f3460","text":"#ffffff","accent":"#e94560"}. Ensure good contrast and readability.`
+      const result = await generateText(aiStore.providers, aiStore.defaults.text, { prompt, maxTokens: 200 })
+      // Extract JSON from response
+      const jsonMatch = result.match(/\{[^}]+\}/)
+      if (jsonMatch) {
+        const palette = JSON.parse(jsonMatch[0])
+        updateTheme({
+          primaryColor: palette.primary || deck.theme.primaryColor,
+          secondaryColor: palette.secondary || deck.theme.secondaryColor,
+          backgroundColor: palette.background || deck.theme.backgroundColor,
+          textColor: palette.text || deck.theme.textColor,
+          accentColor: palette.accent || deck.theme.accentColor
+        })
+      }
+    } catch (err) {
+      console.error('Failed to generate palette:', err)
+      alert('Failed to generate palette. Check AI settings.')
+    } finally {
+      setGeneratingPalette(false)
+    }
+  }
 
   // Apply saved theme on mount
   useEffect(() => {
@@ -199,6 +228,35 @@ export function SettingsView(): React.JSX.Element {
           {/* Deck Theme */}
           <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', padding: 16 }}>
             <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Deck Theme</h3>
+
+            {/* AI Palette Generator */}
+            <div style={{
+              background: 'var(--bg-tertiary)',
+              borderRadius: 6,
+              padding: 10,
+              marginBottom: 12,
+              border: '1px solid var(--border)'
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>✨ AI Palette Generator</div>
+              <div className="form-row" style={{ gap: 4 }}>
+                <input
+                  className="input"
+                  placeholder="e.g., dinosaurs, space, football"
+                  value={paletteKeyword}
+                  onChange={(e) => setPaletteKeyword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleGeneratePalette()}
+                  style={{ flex: 1, fontSize: 12 }}
+                />
+                <button
+                  className="btn btn-sm"
+                  onClick={handleGeneratePalette}
+                  disabled={generatingPalette || !paletteKeyword.trim()}
+                  style={{ minWidth: 80 }}
+                >
+                  {generatingPalette ? '...' : '🎨 Generate'}
+                </button>
+              </div>
+            </div>
 
             {(
               [
