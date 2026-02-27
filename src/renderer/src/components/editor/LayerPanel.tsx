@@ -80,11 +80,43 @@ export const LayerPanel = React.memo(function LayerPanel(): React.JSX.Element {
       <div className="panel-header">
         <span>Layers</span>
         <div style={{ display: 'flex', gap: 4 }}>
-          <button className="btn btn-sm btn-ghost" onClick={handleAddText} title="Add text">
+          <button className="btn btn-sm btn-ghost" onClick={handleAddText} title="Add text layer">
             T
           </button>
-          <button className="btn btn-sm btn-ghost" onClick={handleAddShape} title="Add shape">
+          <button className="btn btn-sm btn-ghost" onClick={handleAddShape} title="Add shape layer">
             ◻
+          </button>
+          <button className="btn btn-sm btn-ghost" onClick={() => {
+            const input = document.createElement('input')
+            input.type = 'file'
+            input.accept = 'image/jpeg,image/png,image/gif,image/webp,image/svg+xml'
+            input.onchange = async () => {
+              const file = input.files?.[0]
+              if (!file) return
+              const reader = new FileReader()
+              reader.onload = () => {
+                addLayer({
+                  id: crypto.randomUUID(),
+                  type: 'image',
+                  name: file.name.substring(0, 30),
+                  x: 5,
+                  y: 12,
+                  width: 52,
+                  height: 50,
+                  rotation: 0,
+                  opacity: 1,
+                  visible: true,
+                  locked: false,
+                  src: reader.result as string,
+                  fit: 'cover',
+                  filters: { brightness: 0, contrast: 0, saturation: 0, blur: 0, grayscale: false }
+                })
+              }
+              reader.readAsDataURL(file)
+            }
+            input.click()
+          }} title="Add image layer">
+            🖼
           </button>
         </div>
       </div>
