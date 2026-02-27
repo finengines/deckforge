@@ -248,7 +248,7 @@ function SlotListSidebar(): React.JSX.Element {
   }
 
   return (
-    <div style={{ width: 240, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ width: 200, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
       <div className="panel-header">Slots</div>
       <div style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>
         <button
@@ -356,10 +356,10 @@ function SlotPropertiesSidebar(): React.JSX.Element {
 
   if (!selectedSlot) {
     return (
-      <div style={{ width: 280, borderLeft: '1px solid var(--border)' }}>
+      <div style={{ width: 200, borderLeft: '1px solid var(--border)', flexShrink: 0 }}>
         <div className="panel-header">Slot Properties</div>
         <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 11 }}>
-          Select a slot to edit its properties
+          Select a slot to edit
         </div>
       </div>
     )
@@ -370,7 +370,7 @@ function SlotPropertiesSidebar(): React.JSX.Element {
   }
 
   return (
-    <div style={{ width: 280, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ width: 240, flexShrink: 0, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
       <div className="panel-header">Slot Properties</div>
       <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
         <div className="form-group">
@@ -1012,7 +1012,7 @@ export function ComponentEditor(): React.JSX.Element {
           Generate component images with AI → Load Background → Add Slots
         </span>
       </div>
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+      <div style={{ display: 'flex', flex: '1 1 0px', overflow: 'hidden', minHeight: 0, minWidth: 0 }}>
         <SlotListSidebar />
         <ComponentCanvas />
         <SlotPropertiesSidebar />
