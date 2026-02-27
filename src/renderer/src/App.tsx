@@ -3,8 +3,7 @@ import { useEditorStore } from './stores/editorStore'
 import { useDeckPersistence } from './hooks/useDeckPersistence'
 import { Toolbar } from './components/editor/Toolbar'
 import { Canvas } from './components/editor/Canvas'
-import { LayerPanel } from './components/editor/LayerPanel'
-import { PropertiesPanel } from './components/editor/PropertiesPanel'
+// LayerPanel and PropertiesPanel are now used inside RightPanelTabs
 import { DeckPanel } from './components/deck/DeckPanel'
 import { DataView } from './components/deck/DataView'
 import { ScoreView } from './components/deck/ScoreView'
@@ -15,7 +14,7 @@ import { ToastContainer } from './components/Toast'
 import { KeyboardShortcuts } from './components/KeyboardShortcuts'
 import { AboutDialog } from './components/AboutDialog'
 import { StatusBar } from './components/StatusBar'
-import ComponentLibrary from './components/library/ComponentLibrary'
+import { RightPanelTabs } from './components/editor/RightPanelTabs'
 import './assets/app.css'
 
 function App(): React.JSX.Element {
@@ -40,21 +39,7 @@ function App(): React.JSX.Element {
           <>
             <DeckPanel />
             <Canvas />
-            <div className="right-panels">
-              <div className="panel">
-                <div className="panel-header">Components</div>
-                <div className="panel-content" style={{ padding: 0 }}>
-                  <ComponentLibrary
-                    onAddLayers={(layers) => {
-                      const store = useEditorStore.getState()
-                      layers.forEach((layer) => store.addLayer(layer))
-                    }}
-                  />
-                </div>
-              </div>
-              <LayerPanel />
-              <PropertiesPanel />
-            </div>
+            <RightPanelTabs />
           </>
         )}
         {view === 'data' && <DataView />}
