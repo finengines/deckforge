@@ -5,6 +5,7 @@ import { useComponentStore } from '../../stores/componentStore'
 import { useEditorStore } from '../../stores/editorStore'
 import { useImage } from '../../hooks/useImage'
 import type { ComponentSlot, ComponentSlotType, ComponentDefinition } from '../../types'
+import { PROMPT_BANK, formatPrompt, type PromptTemplate } from '../../lib/promptBank'
 
 /** Scale factor: 3px per mm */
 const SCREEN_SCALE = 3
@@ -107,12 +108,27 @@ function SlotNode({
 
 function ComponentCanvas(): React.JSX.Element {
   const stageRef = useRef<Konva.Stage>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const component = useComponentStore((s) => s.currentComponent)
   const selectedSlotIds = useComponentStore((s) => s.selectedSlotIds)
   const selectSlots = useComponentStore((s) => s.selectSlots)
   const updateSlot = useComponentStore((s) => s.updateSlot)
+  const [zoom, setZoom] = useState(1)
 
   const [bgImage] = useImage(component?.backgroundImage)
+
+  // Auto-fit zoom on mount / component change
+  React.useEffect(() => {
+    if (!component || !containerRef.current) return
+    const container = containerRef.current
+    const padding = 80
+    const availW = container.clientWidth - padding
+    const availH = container.clientHeight - padding
+    const compW = component.width * SCREEN_SCALE
+    const compH = component.height * SCREEN_SCALE
+    const fitZoom = Math.min(availW / compW, availH / compH, 4)
+    setZoom(Math.max(fitZoom, 0.5))
+  }, [component?.width, component?.height])
 
   if (!component) return <div />
 
@@ -120,75 +136,92 @@ function ComponentCanvas(): React.JSX.Element {
   const canvasHeight = component.height * SCREEN_SCALE
 
   const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>): void => {
-    // Deselect if clicking on stage background
     if (e.target === e.target.getStage()) {
       selectSlots([])
     }
   }
 
+  const handleWheel = (e: React.WheelEvent): void => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault()
+      const delta = e.deltaY > 0 ? 0.9 : 1.1
+      setZoom((z) => Math.min(Math.max(z * delta, 0.25), 8))
+    }
+  }
+
   return (
     <div
+      ref={containerRef}
       style={{
         flex: 1,
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        flexDirection: 'column',
         background: '#1a1a1a',
-        overflow: 'auto',
-        padding: 40
+        overflow: 'hidden',
+        minWidth: 0
       }}
     >
+      {/* Zoom controls */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '6px 12px',
+        borderBottom: '1px solid var(--border)',
+        background: 'var(--bg-tertiary)',
+        flexShrink: 0
+      }}>
+        <button className="btn btn-ghost btn-sm" style={{ fontSize: 14, padding: '2px 8px' }} onClick={() => setZoom((z) => Math.max(z * 0.8, 0.25))}>−</button>
+        <span style={{ fontSize: 11, color: 'var(--text-secondary)', minWidth: 45, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+        <button className="btn btn-ghost btn-sm" style={{ fontSize: 14, padding: '2px 8px' }} onClick={() => setZoom((z) => Math.min(z * 1.2, 8))}>+</button>
+        <button className="btn btn-ghost btn-sm" style={{ fontSize: 10 }} onClick={() => setZoom(1)}>100%</button>
+        <button className="btn btn-ghost btn-sm" style={{ fontSize: 10 }} onClick={() => {
+          if (!containerRef.current) return
+          const p = 80
+          const fitZ = Math.min((containerRef.current.clientWidth - p) / canvasWidth, (containerRef.current.clientHeight - p) / canvasHeight, 4)
+          setZoom(Math.max(fitZ, 0.5))
+        }}>Fit</button>
+      </div>
+
+      {/* Canvas area */}
       <div
         style={{
-          background: '#2a2a2a',
-          borderRadius: 8,
-          padding: 20,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'auto',
+          padding: 40
         }}
+        onWheel={handleWheel}
       >
-        <Stage ref={stageRef} width={canvasWidth} height={canvasHeight} onClick={handleStageClick}>
-          <Layer>
-            {/* Background */}
-            <Rect
-              x={0}
-              y={0}
-              width={canvasWidth}
-              height={canvasHeight}
-              fill={bgImage ? 'transparent' : '#ffffff'}
-              stroke="#666"
-              strokeWidth={1}
-            />
-            {/* Background Image */}
-            {bgImage && (
-              <KonvaImage
-                x={0}
-                y={0}
-                width={canvasWidth}
-                height={canvasHeight}
-                image={bgImage}
-              />
-            )}
-            {/* Slots */}
-            {component.slots.map((slot) => (
-              <SlotNode
-                key={slot.id}
-                slot={slot}
-                isSelected={selectedSlotIds.includes(slot.id)}
-                onSelect={() => selectSlots([slot.id])}
-                onDragEnd={(x, y) => {
-                  updateSlot(slot.id, {
-                    bounds: { ...slot.bounds, x, y }
-                  })
-                }}
-                onTransformEnd={(x, y, width, height) => {
-                  updateSlot(slot.id, {
-                    bounds: { x, y, width, height }
-                  })
-                }}
-              />
-            ))}
-          </Layer>
-        </Stage>
+        <div
+          style={{
+            background: '#2a2a2a',
+            borderRadius: 8,
+            padding: 16,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            transform: `scale(${zoom})`,
+            transformOrigin: 'center center'
+          }}
+        >
+          <Stage ref={stageRef} width={canvasWidth} height={canvasHeight} onClick={handleStageClick}>
+            <Layer>
+              <Rect x={0} y={0} width={canvasWidth} height={canvasHeight} fill={bgImage ? 'transparent' : '#ffffff'} stroke="#666" strokeWidth={1} />
+              {bgImage && <KonvaImage x={0} y={0} width={canvasWidth} height={canvasHeight} image={bgImage} />}
+              {component.slots.map((slot) => (
+                <SlotNode
+                  key={slot.id}
+                  slot={slot}
+                  isSelected={selectedSlotIds.includes(slot.id)}
+                  onSelect={() => selectSlots([slot.id])}
+                  onDragEnd={(x, y) => updateSlot(slot.id, { bounds: { ...slot.bounds, x, y } })}
+                  onTransformEnd={(x, y, width, height) => updateSlot(slot.id, { bounds: { x, y, width, height } })}
+                />
+              ))}
+            </Layer>
+          </Stage>
+        </div>
       </div>
     </div>
   )
@@ -825,8 +858,139 @@ function ComponentLibraryView(): React.JSX.Element {
   )
 }
 
+function PromptBankDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
+  const [selectedCat, setSelectedCat] = useState(PROMPT_BANK[0]?.id ?? '')
+  const [themeColor, setThemeColor] = useState('blue')
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const category = PROMPT_BANK.find((c) => c.id === selectedCat)
+
+  const handleCopy = (template: PromptTemplate): void => {
+    const prompt = formatPrompt(template, { THEME_COLOR: themeColor })
+    navigator.clipboard.writeText(prompt)
+    setCopiedId(template.id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 10000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)'
+    }} onClick={onClose}>
+      <div style={{
+        background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: 800,
+        maxHeight: '85vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+      }} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ padding: 16, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 700 }}>🎨 AI Prompt Templates</h2>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+              Copy a prompt, paste into your image generator (Midjourney, DALL-E, Flux, etc.), then import the result
+            </p>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Theme color picker */}
+        <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Theme color:</span>
+          {['blue', 'red', 'green', 'purple', 'gold', 'orange', 'teal', 'silver', 'black'].map((c) => (
+            <button
+              key={c}
+              onClick={() => setThemeColor(c)}
+              style={{
+                width: 20, height: 20, borderRadius: 4,
+                border: themeColor === c ? '2px solid var(--accent)' : '1px solid var(--border)',
+                background: c === 'gold' ? '#d4a843' : c === 'silver' ? '#999' : c,
+                cursor: 'pointer'
+              }}
+            />
+          ))}
+          <input
+            className="input"
+            style={{ width: 80, fontSize: 11 }}
+            value={themeColor}
+            onChange={(e) => setThemeColor(e.target.value)}
+            placeholder="custom..."
+          />
+        </div>
+
+        <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          {/* Category sidebar */}
+          <div style={{ width: 180, borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 8 }}>
+            {PROMPT_BANK.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCat(cat.id)}
+                style={{
+                  width: '100%', textAlign: 'left', padding: '8px 10px',
+                  fontSize: 12, borderRadius: 4, border: 'none', cursor: 'pointer',
+                  background: selectedCat === cat.id ? 'var(--accent-muted)' : 'transparent',
+                  color: selectedCat === cat.id ? 'var(--accent)' : 'var(--text-primary)',
+                  fontWeight: selectedCat === cat.id ? 600 : 400, marginBottom: 2
+                }}
+              >
+                {cat.icon} {cat.name}
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2 }}>
+                  {cat.templates.length} templates
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Templates list */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+            {category?.templates.map((tmpl) => {
+              const formattedPrompt = formatPrompt(tmpl, { THEME_COLOR: themeColor })
+              return (
+                <div key={tmpl.id} style={{
+                  border: '1px solid var(--border)', borderRadius: 8,
+                  padding: 12, marginBottom: 12, background: 'var(--bg-tertiary)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{tmpl.name}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                        {tmpl.description} • {tmpl.dimensions.width}×{tmpl.dimensions.height}px
+                      </div>
+                    </div>
+                    <button
+                      className="btn btn-sm"
+                      style={{
+                        fontSize: 11, flexShrink: 0,
+                        background: copiedId === tmpl.id ? 'var(--success)' : 'var(--accent)',
+                        color: 'white', border: 'none'
+                      }}
+                      onClick={() => handleCopy(tmpl)}
+                    >
+                      {copiedId === tmpl.id ? '✅ Copied!' : '📋 Copy Prompt'}
+                    </button>
+                  </div>
+                  <div style={{
+                    fontSize: 11, color: 'var(--text-secondary)',
+                    background: 'var(--bg-primary)', padding: 8, borderRadius: 4,
+                    fontFamily: 'monospace', lineHeight: 1.5,
+                    wordBreak: 'break-word'
+                  }}>
+                    {formattedPrompt}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ComponentEditor(): React.JSX.Element {
   const component = useComponentStore((s) => s.currentComponent)
+  const [showPrompts, setShowPrompts] = useState(false)
 
   if (!component) {
     return <ComponentLibraryView />
@@ -835,11 +999,25 @@ export function ComponentEditor(): React.JSX.Element {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <ComponentEditorToolbar />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      {/* AI Prompts button bar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '4px 16px', borderBottom: '1px solid var(--border)',
+        background: 'var(--bg-tertiary)', flexShrink: 0
+      }}>
+        <button className="btn btn-sm" onClick={() => setShowPrompts(true)} style={{ fontSize: 11 }}>
+          🎨 AI Prompt Templates
+        </button>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+          Generate component images with AI → Load Background → Add Slots
+        </span>
+      </div>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
         <SlotListSidebar />
         <ComponentCanvas />
         <SlotPropertiesSidebar />
       </div>
+      {showPrompts && <PromptBankDialog onClose={() => setShowPrompts(false)} />}
     </div>
   )
 }
