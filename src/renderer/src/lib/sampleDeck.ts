@@ -67,6 +67,39 @@ const sampleCards: CardData[] = [
     aiGenerated: {},
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
+  },
+  {
+    id: uuid(),
+    name: 'Storm Serpent',
+    description: 'A colossal sea serpent that summons hurricanes and tidal waves.',
+    funFact: 'Can hold its breath for an entire year!',
+    stats: { 'cat-speed': 78, 'cat-power': 88, 'cat-skill': 72, 'cat-cool': 85 },
+    customFields: {},
+    aiGenerated: {},
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: uuid(),
+    name: 'Forest Spirit',
+    description: 'An ancient guardian of the woodland, invisible to those with impure hearts.',
+    funFact: 'Plants grow twice as fast in her presence!',
+    stats: { 'cat-speed': 40, 'cat-power': 50, 'cat-skill': 95, 'cat-cool': 92 },
+    customFields: {},
+    aiGenerated: {},
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: uuid(),
+    name: 'Lava Golem',
+    description: 'A walking volcano forged in the heart of a mountain, melting everything it touches.',
+    funFact: 'Its core temperature is hotter than the surface of the sun!',
+    stats: { 'cat-speed': 15, 'cat-power': 97, 'cat-skill': 30, 'cat-cool': 75 },
+    customFields: {},
+    aiGenerated: {},
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }
 ]
 
