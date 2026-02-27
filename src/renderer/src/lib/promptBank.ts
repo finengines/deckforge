@@ -360,3 +360,107 @@ export function formatPrompt(template: PromptTemplate, replacements: Record<stri
 export function getAllTemplates(): PromptTemplate[] {
   return PROMPT_BANK.flatMap((cat) => cat.templates)
 }
+
+/**
+ * Custom prompt builder — wraps user's description with all the
+ * technical specs needed for DeckForge compatibility.
+ */
+export interface CustomPromptConfig {
+  type: 'card-background' | 'stat-bar' | 'title-banner' | 'image-frame' | 'badge' | 'decoration' | 'texture'
+  userPrompt: string
+  themeColor: string
+}
+
+const TYPE_SPECS: Record<CustomPromptConfig['type'], {
+  label: string
+  dimensions: string
+  extraSpecs: string
+}> = {
+  'card-background': {
+    label: 'Full Card Background',
+    dimensions: 'portrait orientation, 63x88mm ratio (630x880px recommended)',
+    extraSpecs: 'Leave clear areas for: title text at top, large image area in upper half, stat rows in lower half, description text area'
+  },
+  'stat-bar': {
+    label: 'Stat Bar Element',
+    dimensions: 'horizontal rectangle, 54x8mm ratio (540x80px recommended)',
+    extraSpecs: 'Leave clear areas at left for label text and right for value number. Bar shape with rounded or styled ends'
+  },
+  'title-banner': {
+    label: 'Title Banner',
+    dimensions: 'wide horizontal, 54x12mm ratio (540x120px recommended)',
+    extraSpecs: 'Large clear center area for title text overlay. Decorative edges/ends allowed'
+  },
+  'image-frame': {
+    label: 'Image Frame',
+    dimensions: 'roughly square or 4:3, 50x35mm ratio (500x350px recommended)',
+    extraSpecs: 'Clear EMPTY center area where the card photo will be placed. Only design the border/frame around the edges'
+  },
+  'badge': {
+    label: 'Badge / Emblem',
+    dimensions: 'square, 15x15mm ratio (150x150px recommended)',
+    extraSpecs: 'Small area in center for a number or short text overlay'
+  },
+  'decoration': {
+    label: 'Decorative Element',
+    dimensions: 'varies — dividers: 50x5mm (500x50px), corners: 10x10mm (100x100px)',
+    extraSpecs: 'Pure decorative element, no text areas needed'
+  },
+  'texture': {
+    label: 'Tileable Texture',
+    dimensions: 'square, 512x512px recommended',
+    extraSpecs: 'MUST be seamless/tileable. Pattern should repeat cleanly at all edges'
+  }
+}
+
+/**
+ * Build a complete prompt from user's custom description + component type.
+ * Wraps with all DeckForge-compatible specs.
+ */
+export function buildCustomPrompt(config: CustomPromptConfig): string {
+  const spec = TYPE_SPECS[config.type]
+  const parts = [
+    // What the user wants
+    config.userPrompt.trim(),
+
+    // Component type context
+    `This is a ${spec.label.toLowerCase()} element for a Top Trumps style card game`,
+
+    // Color
+    config.themeColor ? `Primary color theme: ${config.themeColor}` : '',
+
+    // Dimensions
+    spec.dimensions,
+
+    // Component-specific requirements
+    spec.extraSpecs,
+
+    // Universal DeckForge requirements
+    'IMPORTANT REQUIREMENTS:',
+    '- Isolated on plain WHITE background (not transparent, not colored)',
+    '- Clean sharp edges suitable for cutting/masking',
+    '- No text, letters, numbers, or words in the image (text will be overlaid digitally)',
+    '- No watermarks or signatures',
+    '- High detail, game-quality asset',
+    '- Flat/digital art style works best (avoid photorealistic unless specifically wanted)',
+    '- PNG style output, single isolated element'
+  ].filter(Boolean)
+
+  return parts.join('. ')
+}
+
+/**
+ * Get the recommended dimensions for a component type
+ */
+export function getRecommendedDimensions(type: CustomPromptConfig['type']): { width: number; height: number } {
+  const dims: Record<CustomPromptConfig['type'], { width: number; height: number }> = {
+    'card-background': { width: 630, height: 880 },
+    'stat-bar': { width: 540, height: 80 },
+    'title-banner': { width: 540, height: 120 },
+    'image-frame': { width: 500, height: 350 },
+    'badge': { width: 150, height: 150 },
+    'decoration': { width: 500, height: 50 },
+    'texture': { width: 512, height: 512 }
+  }
+  return dims[type]
+}

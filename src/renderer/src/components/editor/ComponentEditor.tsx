@@ -5,7 +5,7 @@ import { useComponentStore } from '../../stores/componentStore'
 import { useEditorStore } from '../../stores/editorStore'
 import { useImage } from '../../hooks/useImage'
 import type { ComponentSlot, ComponentSlotType, ComponentDefinition } from '../../types'
-import { PROMPT_BANK, formatPrompt, type PromptTemplate } from '../../lib/promptBank'
+import { PROMPT_BANK, formatPrompt, buildCustomPrompt, type PromptTemplate, type CustomPromptConfig } from '../../lib/promptBank'
 
 /** Scale factor: 3px per mm */
 const SCREEN_SCALE = 3
@@ -862,6 +862,10 @@ function PromptBankDialog({ onClose }: { onClose: () => void }): React.JSX.Eleme
   const [selectedCat, setSelectedCat] = useState(PROMPT_BANK[0]?.id ?? '')
   const [themeColor, setThemeColor] = useState('blue')
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  // Custom prompt builder state
+  const [customType, setCustomType] = useState<CustomPromptConfig['type']>('card-background')
+  const [customDescription, setCustomDescription] = useState('')
+  const [customCopied, setCustomCopied] = useState(false)
 
   const category = PROMPT_BANK.find((c) => c.id === selectedCat)
 
@@ -922,6 +926,23 @@ function PromptBankDialog({ onClose }: { onClose: () => void }): React.JSX.Eleme
         <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
           {/* Category sidebar */}
           <div style={{ width: 180, borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 8 }}>
+            {/* Custom builder - always first */}
+            <button
+              onClick={() => setSelectedCat('__custom__')}
+              style={{
+                width: '100%', textAlign: 'left', padding: '8px 10px',
+                fontSize: 12, borderRadius: 4, border: 'none', cursor: 'pointer',
+                background: selectedCat === '__custom__' ? 'var(--accent-muted)' : 'transparent',
+                color: selectedCat === '__custom__' ? 'var(--accent)' : 'var(--text-primary)',
+                fontWeight: selectedCat === '__custom__' ? 600 : 400, marginBottom: 6
+              }}
+            >
+              ✏️ Custom Prompt
+              <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2 }}>
+                Build your own
+              </div>
+            </button>
+            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0 8px' }} />
             {PROMPT_BANK.map((cat) => (
               <button
                 key={cat.id}
@@ -942,45 +963,128 @@ function PromptBankDialog({ onClose }: { onClose: () => void }): React.JSX.Eleme
             ))}
           </div>
 
-          {/* Templates list */}
+          {/* Content area */}
           <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-            {category?.templates.map((tmpl) => {
-              const formattedPrompt = formatPrompt(tmpl, { THEME_COLOR: themeColor })
-              return (
-                <div key={tmpl.id} style={{
-                  border: '1px solid var(--border)', borderRadius: 8,
-                  padding: 12, marginBottom: 12, background: 'var(--bg-tertiary)'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{tmpl.name}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                        {tmpl.description} • {tmpl.dimensions.width}×{tmpl.dimensions.height}px
-                      </div>
-                    </div>
-                    <button
-                      className="btn btn-sm"
-                      style={{
-                        fontSize: 11, flexShrink: 0,
-                        background: copiedId === tmpl.id ? 'var(--success)' : 'var(--accent)',
-                        color: 'white', border: 'none'
-                      }}
-                      onClick={() => handleCopy(tmpl)}
-                    >
-                      {copiedId === tmpl.id ? '✅ Copied!' : '📋 Copy Prompt'}
-                    </button>
-                  </div>
-                  <div style={{
-                    fontSize: 11, color: 'var(--text-secondary)',
-                    background: 'var(--bg-primary)', padding: 8, borderRadius: 4,
-                    fontFamily: 'monospace', lineHeight: 1.5,
-                    wordBreak: 'break-word'
-                  }}>
-                    {formattedPrompt}
+            {selectedCat === '__custom__' ? (
+              /* Custom Prompt Builder */
+              <div>
+                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>✏️ Custom Prompt Builder</h3>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16 }}>
+                  Describe what you want and we'll wrap it with all the technical specs for DeckForge compatibility.
+                </p>
+
+                <div className="form-group" style={{ marginBottom: 12 }}>
+                  <label className="input-label">Component Type</label>
+                  <select className="input" value={customType} onChange={(e) => setCustomType(e.target.value as CustomPromptConfig['type'])}>
+                    <option value="card-background">Full Card Background</option>
+                    <option value="stat-bar">Stat Bar</option>
+                    <option value="title-banner">Title Banner</option>
+                    <option value="image-frame">Image Frame</option>
+                    <option value="badge">Badge / Emblem</option>
+                    <option value="decoration">Decorative Element</option>
+                    <option value="texture">Tileable Texture</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 12 }}>
+                  <label className="input-label">Your Description</label>
+                  <textarea
+                    className="input"
+                    rows={4}
+                    placeholder="e.g. Ornate gold and purple medieval fantasy border with dragon motifs and jewel accents..."
+                    value={customDescription}
+                    onChange={(e) => setCustomDescription(e.target.value)}
+                    style={{ resize: 'vertical', fontSize: 12 }}
+                  />
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+                    Just describe the visual style you want. Don't worry about technical details — we'll add those.
                   </div>
                 </div>
-              )
-            })}
+
+                {customDescription.trim() && (
+                  <div style={{
+                    border: '1px solid var(--border)', borderRadius: 8,
+                    padding: 12, background: 'var(--bg-tertiary)', marginTop: 16
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600 }}>📋 Generated Prompt</span>
+                      <button
+                        className="btn btn-sm"
+                        style={{
+                          fontSize: 11,
+                          background: customCopied ? 'var(--success)' : 'var(--accent)',
+                          color: 'white', border: 'none'
+                        }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(buildCustomPrompt({ type: customType, userPrompt: customDescription, themeColor }))
+                          setCustomCopied(true)
+                          setTimeout(() => setCustomCopied(false), 2000)
+                        }}
+                      >
+                        {customCopied ? '✅ Copied!' : '📋 Copy Prompt'}
+                      </button>
+                    </div>
+                    <div style={{
+                      fontSize: 11, color: 'var(--text-secondary)',
+                      background: 'var(--bg-primary)', padding: 10, borderRadius: 4,
+                      fontFamily: 'monospace', lineHeight: 1.6,
+                      wordBreak: 'break-word', maxHeight: 300, overflowY: 'auto'
+                    }}>
+                      {buildCustomPrompt({ type: customType, userPrompt: customDescription, themeColor })}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.6 }}>
+                      <strong>What's included automatically:</strong> white background requirement, no-text rule,
+                      correct dimensions for {customType}, clean edges spec, PNG asset style, DeckForge slot area guidance
+                    </div>
+                  </div>
+                )}
+
+                {!customDescription.trim() && (
+                  <div style={{ border: '1px dashed var(--border)', borderRadius: 8, padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, marginTop: 16 }}>
+                    Type a description above to generate your prompt
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Template list */
+              category?.templates.map((tmpl) => {
+                const formattedPrompt = formatPrompt(tmpl, { THEME_COLOR: themeColor })
+                return (
+                  <div key={tmpl.id} style={{
+                    border: '1px solid var(--border)', borderRadius: 8,
+                    padding: 12, marginBottom: 12, background: 'var(--bg-tertiary)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{tmpl.name}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                          {tmpl.description} • {tmpl.dimensions.width}×{tmpl.dimensions.height}px
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-sm"
+                        style={{
+                          fontSize: 11, flexShrink: 0,
+                          background: copiedId === tmpl.id ? 'var(--success)' : 'var(--accent)',
+                          color: 'white', border: 'none'
+                        }}
+                        onClick={() => handleCopy(tmpl)}
+                      >
+                        {copiedId === tmpl.id ? '✅ Copied!' : '📋 Copy Prompt'}
+                      </button>
+                    </div>
+                    <div style={{
+                      fontSize: 11, color: 'var(--text-secondary)',
+                      background: 'var(--bg-primary)', padding: 8, borderRadius: 4,
+                      fontFamily: 'monospace', lineHeight: 1.5,
+                      wordBreak: 'break-word'
+                    }}>
+                      {formattedPrompt}
+                    </div>
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
       </div>
