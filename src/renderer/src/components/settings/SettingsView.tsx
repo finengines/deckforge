@@ -370,6 +370,122 @@ export function SettingsView(): React.JSX.Element {
               + Add Provider
             </button>
           </div>
+
+          {/* Canvas Settings */}
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', padding: 16, marginTop: 16 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>🖼️ Canvas Defaults</h3>
+
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={useEditorStore.getState().snapToGrid}
+                  onChange={() => useEditorStore.getState().toggleSnapToGrid()}
+                />
+                Snap to Grid
+              </label>
+            </div>
+
+            <div className="form-group">
+              <label className="input-label">Grid Size (px)</label>
+              <input
+                className="input"
+                type="number"
+                min={1}
+                max={100}
+                value={useEditorStore.getState().gridSize}
+                onChange={(e) => useEditorStore.getState().setGridSize(parseInt(e.target.value) || 10)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={useEditorStore.getState().showRulers}
+                  onChange={() => useEditorStore.getState().toggleRulers()}
+                />
+                Show Rulers
+              </label>
+            </div>
+
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={useEditorStore.getState().showGuides}
+                  onChange={() => useEditorStore.getState().toggleGuides()}
+                />
+                Show Guides
+              </label>
+            </div>
+
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={useEditorStore.getState().showLayoutGuides}
+                  onChange={() => useEditorStore.getState().toggleLayoutGuides()}
+                />
+                Show Layout Guides (TT Zones)
+              </label>
+            </div>
+          </div>
+
+          {/* Export Defaults */}
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', padding: 16, marginTop: 16 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>📄 Export Defaults</h3>
+
+            <div className="form-group">
+              <label className="input-label">Default DPI</label>
+              <select className="input" defaultValue="300">
+                <option value="72">72 (Screen)</option>
+                <option value="150">150 (Draft)</option>
+                <option value="300">300 (Print Quality)</option>
+                <option value="600">600 (High Quality)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="input-label">Default Paper Size</label>
+              <select className="input" defaultValue="a4">
+                <option value="a4">A4 (210×297mm)</option>
+                <option value="a3">A3 (297×420mm)</option>
+                <option value="letter">US Letter (216×279mm)</option>
+                <option value="legal">US Legal (216×356mm)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="input-label">Default Image Format</label>
+              <select className="input" defaultValue="png">
+                <option value="png">PNG (Lossless)</option>
+                <option value="jpeg">JPEG (Smaller files)</option>
+              </select>
+            </div>
+
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
+              These defaults are used when creating new exports. You can override them per-export.
+            </div>
+          </div>
+
+          {/* About */}
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', padding: 16, marginTop: 16 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>ℹ️ About DeckForge</h3>
+            <div style={{ fontSize: 12, lineHeight: 1.8 }}>
+              <div><strong>Version:</strong> 1.0.0</div>
+              <div><strong>Card Dimensions:</strong> {deck?.dimensions.width}×{deck?.dimensions.height}mm</div>
+              <div><strong>Cards:</strong> {deck?.cards.length ?? 0}</div>
+              <div><strong>Categories:</strong> {deck?.categories.length ?? 0}</div>
+              <div><strong>Database:</strong> SQLite (local)</div>
+              <div style={{ marginTop: 8 }}>
+                <a href="https://github.com/finengines/deckforge" target="_blank" rel="noopener noreferrer"
+                  style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+                  🔗 GitHub Repository
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
