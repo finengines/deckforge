@@ -30,11 +30,16 @@ export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): React.JSX.Elemen
   const deckName = useEditorStore((s) => s.currentDeck?.name ?? '')
   const editingSide = useEditorStore((s) => s.editingSide)
   const showLayoutGuides = useEditorStore((s) => s.showLayoutGuides)
+  const showGrid = useEditorStore((s) => s.showGrid)
+  const selectedLayerIds = useEditorStore((s) => s.selectedLayerIds)
   const setView = useEditorStore((s) => s.setView)
   const setMode = useEditorStore((s) => s.setMode)
   const setZoom = useEditorStore((s) => s.setZoom)
   const setEditingSide = useEditorStore((s) => s.setEditingSide)
   const toggleLayoutGuides = useEditorStore((s) => s.toggleLayoutGuides)
+  const toggleGrid = useEditorStore((s) => s.toggleGrid)
+  const alignLayers = useEditorStore((s) => s.alignLayers)
+  const distributeLayers = useEditorStore((s) => s.distributeLayers)
 
   return (
     <div className="toolbar">
@@ -118,8 +123,59 @@ export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): React.JSX.Elemen
 
           <div className="toolbar-separator" />
 
-          {/* Layout Guides */}
+          {/* Alignment (show when 2+ layers selected) */}
+          {selectedLayerIds.length >= 2 && (
+            <>
+              <div className="toolbar-group">
+                <Tooltip text="Align left" position="bottom">
+                  <button className="btn btn-icon btn-sm" onClick={() => alignLayers('left')}>⫣</button>
+                </Tooltip>
+                <Tooltip text="Align center horizontally" position="bottom">
+                  <button className="btn btn-icon btn-sm" onClick={() => alignLayers('center-h')}>⫤</button>
+                </Tooltip>
+                <Tooltip text="Align right" position="bottom">
+                  <button className="btn btn-icon btn-sm" onClick={() => alignLayers('right')}>⫢</button>
+                </Tooltip>
+                <span style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} />
+                <Tooltip text="Align top" position="bottom">
+                  <button className="btn btn-icon btn-sm" onClick={() => alignLayers('top')}>⫪</button>
+                </Tooltip>
+                <Tooltip text="Align center vertically" position="bottom">
+                  <button className="btn btn-icon btn-sm" onClick={() => alignLayers('center-v')}>⫫</button>
+                </Tooltip>
+                <Tooltip text="Align bottom" position="bottom">
+                  <button className="btn btn-icon btn-sm" onClick={() => alignLayers('bottom')}>⫬</button>
+                </Tooltip>
+              </div>
+              <div className="toolbar-separator" />
+            </>
+          )}
+
+          {/* Distribute (show when 3+ layers selected) */}
+          {selectedLayerIds.length >= 3 && (
+            <>
+              <div className="toolbar-group">
+                <Tooltip text="Distribute horizontally" position="bottom">
+                  <button className="btn btn-sm btn-ghost" onClick={() => distributeLayers('horizontal')}>⟷</button>
+                </Tooltip>
+                <Tooltip text="Distribute vertically" position="bottom">
+                  <button className="btn btn-sm btn-ghost" onClick={() => distributeLayers('vertical')}>⟼</button>
+                </Tooltip>
+              </div>
+              <div className="toolbar-separator" />
+            </>
+          )}
+
+          {/* Grid & Guides */}
           <div className="toolbar-group">
+            <Tooltip text="Toggle grid" position="bottom">
+              <button
+                className={`btn btn-sm ${showGrid ? 'btn-active' : 'btn-ghost'}`}
+                onClick={toggleGrid}
+              >
+                # Grid
+              </button>
+            </Tooltip>
             <Tooltip text="Toggle layout guides" position="bottom">
               <button
                 className={`btn btn-sm ${showLayoutGuides ? 'btn-active' : 'btn-ghost'}`}

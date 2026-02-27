@@ -57,6 +57,7 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
   const snapToCanvas = useEditorStore((s) => s.snapToCanvas)
   const gridSize = useEditorStore((s) => s.gridSize)
   const showRulers = useEditorStore((s) => s.showRulers)
+  const showGrid = useEditorStore((s) => s.showGrid)
   const showLayoutGuides = useEditorStore((s) => s.showLayoutGuides)
   const selectLayers = useEditorStore((s) => s.selectLayers)
   const updateLayer = useEditorStore((s) => s.updateLayer)
@@ -68,7 +69,10 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
   const [snapLines, setSnapLines] = useState<SnapLine[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const [isPanning, setIsPanning] = useState(false)
+  const [hoveredLayerId, setHoveredLayerId] = useState<string | null>(null)
+  const [selectionBox, setSelectionBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
   const panStartRef = useRef<{ x: number; y: number } | null>(null)
+  const selectionStartRef = useRef<{ x: number; y: number } | null>(null)
   const { menu, showMenu, hideMenu } = useContextMenu()
   const [cropTarget, setCropTarget] = useState<{ src: string; width: number; height: number; layerId: string } | null>(null)
 
@@ -408,7 +412,9 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
       draggable: !layer.locked && mode === 'select',
       onDragMove: handleDragMove,
       onDragEnd: handleDragEnd,
-      onTransformEnd: handleTransformEnd
+      onTransformEnd: handleTransformEnd,
+      onMouseEnter: () => setHoveredLayerId(layer.id),
+      onMouseLeave: () => setHoveredLayerId(null)
     }
 
     switch (layer.type) {
@@ -561,6 +567,14 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
             setIsPanning(true)
             panStartRef.current = { x: e.evt.clientX, y: e.evt.clientY }
             e.evt.preventDefault()
+            return
+          }
+          // Selection box: start if clicking on empty stage
+          if (currentMode === 'select' && e.target === e.target.getStage()) {
+            const stage = e.target.getStage()!
+            const pointer = stage.getPointerPosition()!
+            selectionStartRef.current = { x: pointer.x, y: pointer.y }
+            setSelectionBox({ x1: pointer.x, y1: pointer.y, x2: pointer.x, y2: pointer.y })
           }
         }}
         onMouseMove={(e) => {
@@ -570,10 +584,53 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
             panStartRef.current = { x: e.evt.clientX, y: e.evt.clientY }
             setPanOffset({ x: panOffset.x + dx, y: panOffset.y + dy })
           }
+          // Selection box: update if dragging
+          if (selectionStartRef.current && selectionBox) {
+            const stage = e.target.getStage()!
+            const pointer = stage.getPointerPosition()!
+            setSelectionBox({ ...selectionBox, x2: pointer.x, y2: pointer.y })
+          }
         }}
-        onMouseUp={() => {
+        onMouseUp={(e) => {
           setIsPanning(false)
           panStartRef.current = null
+
+          // Selection box: finalize
+          if (selectionStartRef.current && selectionBox) {
+            const box = {
+              x: Math.min(selectionBox.x1, selectionBox.x2),
+              y: Math.min(selectionBox.y1, selectionBox.y2),
+              width: Math.abs(selectionBox.x2 - selectionBox.x1),
+              height: Math.abs(selectionBox.y2 - selectionBox.y1)
+            }
+
+            // Find layers within selection box
+            const selectedIds: string[] = []
+            for (const layer of layers) {
+              const layerBox = {
+                x: (layer.x * SCREEN_SCALE * zoom) + offsetX,
+                y: (layer.y * SCREEN_SCALE * zoom) + offsetY,
+                width: layer.width * SCREEN_SCALE * zoom,
+                height: layer.height * SCREEN_SCALE * zoom
+              }
+              // Simple intersection test
+              if (
+                layerBox.x < box.x + box.width &&
+                layerBox.x + layerBox.width > box.x &&
+                layerBox.y < box.y + box.height &&
+                layerBox.y + layerBox.height > box.y
+              ) {
+                selectedIds.push(layer.id)
+              }
+            }
+
+            if (selectedIds.length > 0) {
+              selectLayers(selectedIds)
+            }
+
+            selectionStartRef.current = null
+            setSelectionBox(null)
+          }
         }}
         style={{
           marginLeft: showRulers ? 24 : 0,
@@ -582,6 +639,46 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
         }}
       >
         <Layer x={offsetX} y={offsetY} scaleX={zoom} scaleY={zoom}>
+          {/* Grid */}
+          {showGrid && (() => {
+            const gridLines: React.JSX.Element[] = []
+            const gridSpacing = gridSize * SCREEN_SCALE / 3 // Convert grid size from px to mm equivalent
+            const cols = Math.ceil(cardW / gridSpacing) + 1
+            const rows = Math.ceil(cardH / gridSpacing) + 1
+
+            // Vertical lines
+            for (let i = 0; i <= cols; i++) {
+              const x = i * gridSpacing
+              gridLines.push(
+                <Line
+                  key={`v-${i}`}
+                  points={[x, 0, x, cardH]}
+                  stroke="#333"
+                  strokeWidth={0.5 / zoom}
+                  listening={false}
+                  opacity={0.3}
+                />
+              )
+            }
+
+            // Horizontal lines
+            for (let j = 0; j <= rows; j++) {
+              const y = j * gridSpacing
+              gridLines.push(
+                <Line
+                  key={`h-${j}`}
+                  points={[0, y, cardW, y]}
+                  stroke="#333"
+                  strokeWidth={0.5 / zoom}
+                  listening={false}
+                  opacity={0.3}
+                />
+              )
+            }
+
+            return gridLines
+          })()}
+
           {/* Bleed area */}
           <Rect
             x={-bleed}
@@ -608,6 +705,26 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
 
           {/* User layers */}
           {layers.map(renderLayer)}
+
+          {/* Hover highlight */}
+          {hoveredLayerId && !selectedLayerIds.includes(hoveredLayerId) && (() => {
+            const hoveredLayer = layers.find((l) => l.id === hoveredLayerId)
+            if (!hoveredLayer) return null
+            return (
+              <Rect
+                x={hoveredLayer.x * SCREEN_SCALE}
+                y={hoveredLayer.y * SCREEN_SCALE}
+                width={hoveredLayer.width * SCREEN_SCALE}
+                height={hoveredLayer.height * SCREEN_SCALE}
+                rotation={hoveredLayer.rotation}
+                stroke="#00ccff"
+                strokeWidth={2 / zoom}
+                dash={[4, 2]}
+                listening={false}
+                opacity={0.6}
+              />
+            )
+          })()}
 
           {/* Snap guide lines */}
           {snapLines.map((line) => {
@@ -652,6 +769,23 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
             }}
           />
         </Layer>
+
+        {/* Selection Box */}
+        {selectionBox && (
+          <Layer>
+            <Rect
+              x={Math.min(selectionBox.x1, selectionBox.x2)}
+              y={Math.min(selectionBox.y1, selectionBox.y2)}
+              width={Math.abs(selectionBox.x2 - selectionBox.x1)}
+              height={Math.abs(selectionBox.y2 - selectionBox.y1)}
+              fill="rgba(0, 150, 255, 0.1)"
+              stroke="#0096ff"
+              strokeWidth={1}
+              listening={false}
+            />
+          </Layer>
+        )}
+
         {showLayoutGuides && (
           <LayoutGuides
             cardWidth={dims.width}

@@ -60,17 +60,25 @@ function LayerTreeItem({
             🔗
           </span>
         )}
-        {layer.locked && (
-          <span style={{ fontSize: 9, opacity: 0.6, marginLeft: 4 }} title="Locked">
-            🔒
-          </span>
-        )}
         <button
           className="btn btn-ghost btn-sm"
           style={{ padding: 2, fontSize: 10, opacity: 0.5 }}
           onClick={(e) => onToggleVisibility(e, layer.id, !layer.visible)}
+          title={layer.visible ? 'Hide layer' : 'Show layer'}
         >
           {layer.visible ? '👁' : '🚫'}
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ padding: 2, fontSize: 10, opacity: layer.locked ? 0.8 : 0.3 }}
+          onClick={(e) => {
+            e.stopPropagation()
+            const updateLayer = useEditorStore.getState().updateLayer
+            updateLayer(layer.id, { locked: !layer.locked })
+          }}
+          title={layer.locked ? 'Unlock layer (Ctrl+L)' : 'Lock layer (Ctrl+L)'}
+        >
+          {layer.locked ? '🔒' : '🔓'}
         </button>
         <button
           className="btn btn-ghost btn-sm"

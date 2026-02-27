@@ -98,6 +98,10 @@ interface EditorStore extends EditorState {
   bringToFront: (ids: string[]) => void
   toggleLockLayers: (ids: string[]) => void
 
+  // --- Alignment ---
+  alignLayers: (alignment: 'left' | 'center-h' | 'right' | 'top' | 'center-v' | 'bottom') => void
+  distributeLayers: (direction: 'horizontal' | 'vertical') => void
+
   // --- Canvas ---
   setZoom: (zoom: number) => void
   zoomIn: () => void
@@ -111,6 +115,8 @@ interface EditorStore extends EditorState {
   setGridSize: (size: number) => void
   toggleRulers: () => void
   toggleGuides: () => void
+  toggleGrid: () => void
+  showGrid: boolean
   setShowLayoutGuides: (val: boolean) => void
   toggleLayoutGuides: () => void
 }
@@ -134,6 +140,7 @@ export const useEditorStore = create<EditorStore>()(
       gridSize: 10,
       showRulers: true,
       showGuides: true,
+      showGrid: true,
       showLayoutGuides: false,
 
       // --- View ---
@@ -650,6 +657,102 @@ export const useEditorStore = create<EditorStore>()(
           updateLock(layers)
         }),
 
+      // --- Alignment ---
+      alignLayers: (alignment) =>
+        set((s) => {
+          if (!s.currentDeck || s.selectedLayerIds.length < 2) return
+          const template =
+            s.editingSide === 'front'
+              ? s.currentDeck.frontTemplate
+              : s.currentDeck.backTemplate
+          const layers = s.editingSide === 'back' && template.backLayers !== null
+            ? template.backLayers!
+            : template.frontLayers
+
+          // Get selected layers
+          const selectedLayers = layers.filter((l) => s.selectedLayerIds.includes(l.id))
+          if (selectedLayers.length < 2) return
+
+          // Calculate bounding box of all selected layers
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+          for (const layer of selectedLayers) {
+            minX = Math.min(minX, layer.x)
+            minY = Math.min(minY, layer.y)
+            maxX = Math.max(maxX, layer.x + layer.width)
+            maxY = Math.max(maxY, layer.y + layer.height)
+          }
+          const centerX = (minX + maxX) / 2
+          const centerY = (minY + maxY) / 2
+
+          // Apply alignment
+          for (const layer of selectedLayers) {
+            switch (alignment) {
+              case 'left':
+                layer.x = minX
+                break
+              case 'center-h':
+                layer.x = centerX - layer.width / 2
+                break
+              case 'right':
+                layer.x = maxX - layer.width
+                break
+              case 'top':
+                layer.y = minY
+                break
+              case 'center-v':
+                layer.y = centerY - layer.height / 2
+                break
+              case 'bottom':
+                layer.y = maxY - layer.height
+                break
+            }
+          }
+        }),
+
+      distributeLayers: (direction) =>
+        set((s) => {
+          if (!s.currentDeck || s.selectedLayerIds.length < 3) return
+          const template =
+            s.editingSide === 'front'
+              ? s.currentDeck.frontTemplate
+              : s.currentDeck.backTemplate
+          const layers = s.editingSide === 'back' && template.backLayers !== null
+            ? template.backLayers!
+            : template.frontLayers
+
+          // Get selected layers
+          const selectedLayers = layers.filter((l) => s.selectedLayerIds.includes(l.id))
+          if (selectedLayers.length < 3) return
+
+          if (direction === 'horizontal') {
+            // Sort by x position
+            const sorted = [...selectedLayers].sort((a, b) => a.x - b.x)
+            const first = sorted[0]
+            const last = sorted[sorted.length - 1]
+            const totalSpace = last.x - (first.x + first.width)
+            const gap = totalSpace / (sorted.length - 1)
+
+            let currentX = first.x + first.width + gap
+            for (let i = 1; i < sorted.length - 1; i++) {
+              sorted[i].x = currentX
+              currentX += sorted[i].width + gap
+            }
+          } else {
+            // Sort by y position
+            const sorted = [...selectedLayers].sort((a, b) => a.y - b.y)
+            const first = sorted[0]
+            const last = sorted[sorted.length - 1]
+            const totalSpace = last.y - (first.y + first.height)
+            const gap = totalSpace / (sorted.length - 1)
+
+            let currentY = first.y + first.height + gap
+            for (let i = 1; i < sorted.length - 1; i++) {
+              sorted[i].y = currentY
+              currentY += sorted[i].height + gap
+            }
+          }
+        }),
+
       // --- Canvas ---
       setZoom: (zoom) =>
         set((s) => {
@@ -715,6 +818,11 @@ export const useEditorStore = create<EditorStore>()(
       toggleGuides: () =>
         set((s) => {
           s.showGuides = !s.showGuides
+        }),
+
+      toggleGrid: () =>
+        set((s) => {
+          s.showGrid = !s.showGrid
         }),
 
       setShowLayoutGuides: (val: boolean) =>

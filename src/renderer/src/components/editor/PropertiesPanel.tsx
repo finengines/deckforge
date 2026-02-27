@@ -82,71 +82,93 @@ export const PropertiesPanel = React.memo(function PropertiesPanel(): React.JSX.
 
         <PropSection title="Transform">
           <div className="form-group">
-            <label className="input-label">Position (mm)</label>
-            <div className="form-row">
-              <input
-                className="input"
-                type="number"
-                value={selectedLayer.x}
-                onChange={(e) => update({ x: parseFloat(e.target.value) || 0 })}
-                style={{ width: '50%' }}
-                placeholder="X"
-              />
-              <input
-                className="input"
-                type="number"
-                value={selectedLayer.y}
-                onChange={(e) => update({ y: parseFloat(e.target.value) || 0 })}
-                style={{ width: '50%' }}
-                placeholder="Y"
-              />
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="input-label">Size (mm)</label>
-            <div className="form-row">
-              <input
-                className="input"
-                type="number"
-                value={selectedLayer.width}
-                onChange={(e) => update({ width: parseFloat(e.target.value) || 0 })}
-                style={{ width: '50%' }}
-                placeholder="W"
-              />
-              <input
-                className="input"
-                type="number"
-                value={selectedLayer.height}
-                onChange={(e) => update({ height: parseFloat(e.target.value) || 0 })}
-                style={{ width: '50%' }}
-                placeholder="H"
-              />
-            </div>
-          </div>
-          <div className="form-group">
-            <div className="form-row">
+            <label className="input-label">Position</label>
+            <div className="form-row" style={{ gap: 4 }}>
               <div style={{ flex: 1 }}>
-                <label className="input-label">Rotation</label>
+                <div style={{ fontSize: 9, opacity: 0.6, marginBottom: 2 }}>X (mm)</div>
                 <input
                   className="input"
                   type="number"
-                  value={selectedLayer.rotation}
-                  onChange={(e) => update({ rotation: parseFloat(e.target.value) || 0 })}
+                  step="0.1"
+                  value={selectedLayer.x.toFixed(2)}
+                  onChange={(e) => update({ x: parseFloat(e.target.value) || 0 })}
                 />
               </div>
               <div style={{ flex: 1 }}>
-                <label className="input-label">Opacity</label>
+                <div style={{ fontSize: 9, opacity: 0.6, marginBottom: 2 }}>Y (mm)</div>
                 <input
                   className="input"
                   type="number"
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  value={selectedLayer.opacity}
-                  onChange={(e) => update({ opacity: parseFloat(e.target.value) || 1 })}
+                  step="0.1"
+                  value={selectedLayer.y.toFixed(2)}
+                  onChange={(e) => update({ y: parseFloat(e.target.value) || 0 })}
                 />
               </div>
             </div>
+          </div>
+          <div className="form-group">
+            <label className="input-label">Size</label>
+            <div className="form-row" style={{ gap: 4 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 9, opacity: 0.6, marginBottom: 2 }}>W (mm)</div>
+                <input
+                  className="input"
+                  type="number"
+                  step="0.1"
+                  value={selectedLayer.width.toFixed(2)}
+                  onChange={(e) => update({ width: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 9, opacity: 0.6, marginBottom: 2 }}>H (mm)</div>
+                <input
+                  className="input"
+                  type="number"
+                  step="0.1"
+                  value={selectedLayer.height.toFixed(2)}
+                  onChange={(e) => update({ height: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="input-label">Rotation (°)</label>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+              {[0, 45, 90, 180, 270].map((angle) => (
+                <button
+                  key={angle}
+                  className="btn btn-sm btn-ghost"
+                  style={{
+                    flex: 1,
+                    fontSize: 10,
+                    padding: '2px 4px',
+                    background: Math.abs(selectedLayer.rotation - angle) < 0.1 ? 'var(--accent)' : undefined,
+                    color: Math.abs(selectedLayer.rotation - angle) < 0.1 ? 'white' : undefined
+                  }}
+                  onClick={() => update({ rotation: angle })}
+                >
+                  {angle}°
+                </button>
+              ))}
+            </div>
+            <input
+              className="input"
+              type="number"
+              step="1"
+              value={Math.round(selectedLayer.rotation)}
+              onChange={(e) => update({ rotation: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
+          <div className="form-group">
+            <label className="input-label">Opacity: {Math.round(selectedLayer.opacity * 100)}%</label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={Math.round(selectedLayer.opacity * 100)}
+              onChange={(e) => update({ opacity: parseInt(e.target.value, 10) / 100 })}
+              style={{ width: '100%' }}
+            />
           </div>
         </PropSection>
 
