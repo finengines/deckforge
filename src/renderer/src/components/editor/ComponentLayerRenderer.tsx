@@ -1,13 +1,40 @@
 import React from "react"
-import { Group, Rect, Text } from 'react-konva'
+import { Group, Rect, Text, Image as KonvaImage } from 'react-konva'
 import { useEditorStore } from '../../stores/editorStore'
-import type { ComponentLayer, ComponentSlot, CardData, TextLayer } from '../../types'
+import { useImage } from '../../hooks/useImage'
+import type { ComponentLayer, ComponentSlot, CardData, CardCategory } from '../../types'
 
 const SCREEN_SCALE = 3
 
 interface Props {
   layer: ComponentLayer
   cardData?: CardData | null
+}
+
+/**
+ * Sub-component for rendering image slots (allows hook usage)
+ */
+function SlotImageRenderer({
+  src,
+  x,
+  y,
+  width,
+  height
+}: {
+  src: string
+  x: number
+  y: number
+  width: number
+  height: number
+}): React.JSX.Element {
+  const [image] = useImage(src)
+
+  if (image) {
+    return <KonvaImage image={image} x={x} y={y} width={width} height={height} />
+  }
+
+  // Placeholder while loading
+  return <Rect x={x} y={y} width={width} height={height} fill="#444" stroke="#555" strokeWidth={0.5} />
 }
 
 /**
@@ -50,28 +77,50 @@ export function ComponentLayerRenderer({ layer, cardData }: Props): React.JSX.El
     )
   }
 
-  // Resolve slot values: overrides > card data binding > default
-  const resolveSlotValue = (slot: ComponentSlot): string | number => {
-    if (layer.overrides[slot.id] !== undefined) return layer.overrides[slot.id] as string | number
-    if (layer.overrides[slot.name] !== undefined) return layer.overrides[slot.name] as string | number
-
-    if (cardData) {
-      // Try matching slot name to card fields
-      const key = slot.name.toLowerCase()
-      if (key === 'name') return cardData.name
-      if (key === 'description') return cardData.description ?? ''
-      if (key === 'image') return cardData.image ?? ''
-      if (key === 'funfact' || key === 'fun fact') return cardData.funFact ?? ''
-      // Check stats
-      if (cardData.stats[slot.name] !== undefined) return cardData.stats[slot.name]
-      // Check custom fields
-      if (cardData.customFields[slot.name] !== undefined) return String(cardData.customFields[slot.name])
+  // Helper: resolve slot value from card data
+  const resolveSlotValue = (slot: ComponentSlot): { value: string | number; category?: CardCategory } => {
+    // Check overrides first
+    if (layer.overrides[slot.id] !== undefined) {
+      return { value: layer.overrides[slot.id] as string | number }
     }
 
-    return slot.defaultValue ?? ''
+    if (!cardData) {
+      return { value: slot.defaultValue ?? '' }
+    }
+
+    // Handle data binding
+    if (slot.bindTo) {
+      const binding = slot.bindTo
+
+      // Direct card fields
+      if (binding === 'name') return { value: cardData.name }
+      if (binding === 'description') return { value: cardData.description ?? '' }
+      if (binding === 'funFact') return { value: cardData.funFact ?? '' }
+      if (binding === 'image') return { value: cardData.image ?? '' }
+
+      // Stat values: 'stat:categoryId'
+      if (binding.startsWith('stat:')) {
+        const catId = binding.slice(5)
+        const category = deck.categories.find((c) => c.id === catId)
+        const value = cardData.stats[catId]
+        return { value: value !== undefined ? value : 0, category }
+      }
+
+      // Stat labels: 'stat-label:categoryId'
+      if (binding.startsWith('stat-label:')) {
+        const catId = binding.slice(11)
+        const category = deck.categories.find((c) => c.id === catId)
+        return { value: category?.name ?? '', category }
+      }
+    }
+
+    return { value: slot.defaultValue ?? '' }
   }
 
-  // Scale factor: component def size → layer placed size
+  // Load background image
+  const [bgImage] = useImage(compDef.backgroundImage)
+
+  // Scale factors
   const scaleX = layer.width / compDef.width
   const scaleY = layer.height / compDef.height
 
@@ -85,88 +134,109 @@ export function ComponentLayerRenderer({ layer, cardData }: Props): React.JSX.El
       opacity={layer.opacity}
       rotation={layer.rotation}
     >
-      {/* Render component's static layers */}
+      {/* Background Image */}
+      {bgImage && (
+        <KonvaImage
+          image={bgImage}
+          x={0}
+          y={0}
+          width={compDef.width * SCREEN_SCALE}
+          height={compDef.height * SCREEN_SCALE}
+        />
+      )}
+
+      {/* Render static layers (if any) */}
       {compDef.layers.map((cl) => {
         if (!cl.visible) return null
-        const props = {
-          key: cl.id,
-          x: cl.x * SCREEN_SCALE,
-          y: cl.y * SCREEN_SCALE,
-          width: cl.width * SCREEN_SCALE,
-          height: cl.height * SCREEN_SCALE,
-          opacity: cl.opacity,
-          rotation: cl.rotation
-        }
+        // TODO: render static layers if needed
+        return null
+      })}
 
-        switch (cl.type) {
-          case 'text': {
-            const tl = cl as TextLayer
-            // Check if bound to a slot
-            const boundSlot = compDef.slots.find((s) => s.name === tl.bindTo || s.id === tl.bindTo)
-            const displayText = boundSlot ? String(resolveSlotValue(boundSlot)) : tl.text
+      {/* Render Slots */}
+      {compDef.slots.map((slot) => {
+        const resolved = resolveSlotValue(slot)
+        const value = resolved.value
+        const category = resolved.category
+
+        const x = slot.bounds.x * SCREEN_SCALE
+        const y = slot.bounds.y * SCREEN_SCALE
+        let width = slot.bounds.width * SCREEN_SCALE
+        const height = slot.bounds.height * SCREEN_SCALE
+
+        // Handle stat-bar-fill: adjust width based on value
+        if (slot.type === 'stat-bar-fill' && typeof value === 'number') {
+          const min = slot.minValue ?? category?.min ?? 0
+          const max = slot.maxValue ?? category?.max ?? 100
+          const normalizedValue = Math.max(min, Math.min(max, value))
+          const percentage = (normalizedValue - min) / (max - min)
+          
+          if (slot.barDirection === 'vertical') {
+            // For vertical bars, adjust height instead
+            const newHeight = height * percentage
             return (
-              <Text
-                {...props}
-                text={displayText}
-                fontSize={tl.fontSize * SCREEN_SCALE}
-                fontFamily={tl.fontFamily}
-                fontStyle={`${tl.fontWeight} ${tl.fontStyle}`}
-                fill={tl.fill}
-                align={tl.align}
-                verticalAlign={tl.verticalAlign}
-                lineHeight={tl.lineHeight}
-                letterSpacing={tl.letterSpacing}
+              <Rect
+                key={slot.id}
+                x={x}
+                y={y + (height - newHeight)}
+                width={width}
+                height={newHeight}
+                fill={slot.textStyle?.fill ?? '#3b82f6'}
+                opacity={0.8}
+              />
+            )
+          } else {
+            // Horizontal bar
+            width = width * percentage
+            return (
+              <Rect
+                key={slot.id}
+                x={x}
+                y={y}
+                width={width}
+                height={height}
+                fill={slot.textStyle?.fill ?? '#3b82f6'}
+                opacity={0.8}
               />
             )
           }
-          case 'shape':
-            return (
-              <Rect
-                {...props}
-                fill={(cl as any).fill}
-                stroke={(cl as any).stroke}
-                strokeWidth={(cl as any).strokeWidth}
-                cornerRadius={((cl as any).cornerRadius ?? 0) * SCREEN_SCALE}
-              />
-            )
-          case 'image':
-            return (
-              <Rect
-                {...props}
-                fill="#444"
-                stroke="#555"
-                strokeWidth={0.5}
-              />
-            )
-          default:
-            return null
         }
-      })}
 
-      {/* Render slot regions (subtle overlay for slots without matching layers) */}
-      {compDef.slots.map((slot) => {
-        const value = resolveSlotValue(slot)
-        // Only render text/number slots as overlays if no layer is bound to them
-        const hasBoundLayer = compDef.layers.some(
-          (l) => l.type === 'text' && (l.bindTo === slot.name || l.bindTo === slot.id)
-        )
-        if (hasBoundLayer) return null
-        if (slot.type === 'image') return null
+        // Handle image slots
+        if (slot.type === 'image' && typeof value === 'string' && value) {
+          return (
+            <SlotImageRenderer
+              key={slot.id}
+              src={value}
+              x={x}
+              y={y}
+              width={width}
+              height={height}
+            />
+          )
+        }
 
-        return (
-          <Text
-            key={`slot-${slot.id}`}
-            x={slot.bounds.x * SCREEN_SCALE}
-            y={slot.bounds.y * SCREEN_SCALE}
-            width={slot.bounds.width * SCREEN_SCALE}
-            height={slot.bounds.height * SCREEN_SCALE}
-            text={String(value)}
-            fontSize={3 * SCREEN_SCALE}
-            fill="#333"
-            align="center"
-            verticalAlign="middle"
-          />
-        )
+        // Handle text slots (text, stat-label, stat-value)
+        if (slot.type === 'text' || slot.type === 'stat-label' || slot.type === 'stat-value') {
+          const style = slot.textStyle || {}
+          return (
+            <Text
+              key={slot.id}
+              x={x}
+              y={y}
+              width={width}
+              height={height}
+              text={String(value)}
+              fontSize={(style.fontSize ?? 3) * SCREEN_SCALE}
+              fontFamily={style.fontFamily ?? 'Inter'}
+              fontStyle={`${style.fontWeight ?? 'normal'} ${style.fontStyle ?? 'normal'}`}
+              fill={style.fill ?? '#000000'}
+              align={style.align ?? 'left'}
+              verticalAlign={style.verticalAlign ?? 'middle'}
+            />
+          )
+        }
+
+        return null
       })}
     </Group>
   )
