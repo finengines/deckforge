@@ -132,6 +132,7 @@ export function DataView(): React.JSX.Element {
           <thead>
             <tr>
               <th style={thStyle}>#</th>
+              <th style={thStyle}>Image</th>
               <th style={thStyle}>Name</th>
               <th style={thStyle}>Description</th>
               <th style={thStyle}>Fun Fact</th>
@@ -148,6 +149,49 @@ export function DataView(): React.JSX.Element {
             {deck.cards.map((card, i) => (
               <tr key={card.id} style={{ borderTop: '1px solid var(--border)' }}>
                 <td style={tdStyle}>{i + 1}</td>
+                <td style={{ ...tdStyle, width: 60 }}>
+                  {card.image ? (
+                    <div style={{ position: 'relative', width: 40, height: 56, cursor: 'pointer' }}
+                      onClick={() => {
+                        const input = document.createElement('input')
+                        input.type = 'file'
+                        input.accept = 'image/*'
+                        input.onchange = async () => {
+                          const file = input.files?.[0]
+                          if (!file) return
+                          const reader = new FileReader()
+                          reader.onload = () => updateCard(card.id, { image: reader.result as string })
+                          reader.readAsDataURL(file)
+                        }
+                        input.click()
+                      }}
+                      title="Click to change image"
+                    >
+                      <img src={card.image} alt="" style={{ width: 40, height: 56, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border)' }} />
+                    </div>
+                  ) : (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ width: 40, height: 56, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--border)', borderRadius: 4 }}
+                      onClick={() => {
+                        const input = document.createElement('input')
+                        input.type = 'file'
+                        input.accept = 'image/*'
+                        input.onchange = async () => {
+                          const file = input.files?.[0]
+                          if (!file) return
+                          const reader = new FileReader()
+                          reader.onload = () => updateCard(card.id, { image: reader.result as string })
+                          reader.readAsDataURL(file)
+                        }
+                        input.click()
+                      }}
+                      title="Add image"
+                    >
+                      📷
+                    </button>
+                  )}
+                </td>
                 <td style={tdStyle}>
                   <input
                     className="input"
