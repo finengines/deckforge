@@ -66,6 +66,49 @@ npm run lint         # ESLint
 
 ---
 
+## 🃏 Top Trumps Mode
+
+DeckForge is optimized for creating Top Trumps-style card packs:
+
+- **12 Built-In Templates** — Pre-designed themes (Classic, Sports, Animals, Supercars, Space, Superheroes, Food, Music, History, Kids Cartoon, Photo Minimal, Premium Gold)
+- **21 Component Presets** — Stat bars, title bars, image frames, badges, decorative elements, dividers
+- **Score Entry View** — Tinder-style swipe interface for entering card stats with your deck-building partner
+- **Layout Guides** — Visual zone overlays (Title 0-12%, Image 12-62%, Description 62-72%, Stats 72-95%, Footer 95-100%)
+- **Stat Balancing** — AI-powered deck balance analysis to avoid quick wins and ensure fun gameplay
+- **CSV Import** — Bulk import card data with automatic column mapping
+- **Standard Dimensions** — Default 62×100mm cards (official Top Trumps size)
+
+### Creating Your First Top Trumps Pack
+
+1. **Design → Templates** → Pick a theme (e.g., "Sports Star")
+2. **Data → Add Cards** → Enter names and stats
+3. **Score → Enter stats** → Use the swipe interface to set values
+4. **AI → Batch Generate** → Auto-generate descriptions and fun facts
+5. **Export → PDF** → Print-ready with cut marks
+
+📖 **[Full Top Trumps workflow guide →](docs/top-trumps-guide.md)** *(coming soon)*
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+| Action | Shortcut | Notes |
+|--------|----------|-------|
+| **Undo** | `Cmd/Ctrl + Z` | 100-step history |
+| **Redo** | `Cmd/Ctrl + Shift + Z` | |
+| **Select Tool** | `V` | Default selection mode |
+| **Text Tool** | `T` | Click canvas to add text |
+| **Shape Tool** | `R` | Click canvas to add rectangle |
+| **Image Tool** | `I` | Opens file picker |
+| **Pan Tool** | `H` | Or middle-mouse drag |
+| **Delete Layer** | `Delete / Backspace` | Selected layers |
+| **Duplicate Layer** | `Cmd/Ctrl + D` | |
+| **Zoom In** | `Cmd/Ctrl + +` | |
+| **Zoom Out** | `Cmd/Ctrl + -` | |
+| **Shortcuts Reference** | `?` | Opens shortcuts modal |
+
+---
+
 ## 🏗️ Architecture
 
 DeckForge is an **Electron** app with three processes:
@@ -112,6 +155,50 @@ User Edit → Zustand Store (Immer) → React Re-render
 | Build | electron-vite, Vite 7 |
 | Testing | Vitest, Playwright |
 | Packaging | electron-builder |
+
+---
+
+## 🎨 Component Editor Workflow
+
+DeckForge supports importing custom components designed in Photoshop, Figma, or Affinity Designer:
+
+1. **Design in your tool of choice** at print resolution (300 DPI)
+2. **Export as PSD** with named layers
+3. **Import → PSD** in DeckForge
+4. **Map layers to data slots** (e.g., layer "stat_1" → category "Speed")
+5. **Save as reusable component**
+
+📖 **[Component Editor Guide →](docs/component-editor-guide.md)** *(coming soon)*
+
+---
+
+## 🐛 Troubleshooting
+
+### App won't launch / white screen
+- **macOS:** Right-click app → Open (to bypass Gatekeeper)
+- **Check logs:** `~/Library/Logs/DeckForge/` (macOS) or `%APPDATA%/DeckForge/logs/` (Windows)
+- **Clear cache:** Delete `~/Library/Application Support/DeckForge/` and restart
+
+### AI features not working
+- **Check API keys** in Settings → AI Providers
+- **Gemini:** Get free API key at [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- **Ollama:** Ensure Ollama is running (`ollama serve`)
+- **Rate limits:** Add delay in Batch Generate settings (default 1000ms)
+
+### PDF export issues
+- **Large files:** Reduce DPI in Export settings (300 → 150 DPI)
+- **Blurry images:** Increase source image resolution
+- **Misaligned printing:** Generate test sheet in Export → Test Sheets
+
+### Performance
+- **Slow canvas:** Reduce zoom level or hide unnecessary layers
+- **High RAM usage:** Close unused decks (File → Close Deck)
+- **Sluggish UI:** Disable gradients in Settings → App Theme
+
+### Data loss
+- **Auto-save enabled by default** (2s debounce to SQLite)
+- **Manual save:** Deck → Save (or export .deckforge file)
+- **Database location:** `~/Library/Application Support/DeckForge/decks.db`
 
 ---
 
