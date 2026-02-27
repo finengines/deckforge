@@ -170,9 +170,15 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
     for (const file of files) {
       const arrayBuffer = await file.arrayBuffer()
       const buffer = Array.from(new Uint8Array(arrayBuffer))
+      // Convert to data URL so it renders regardless of Electron security settings
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.readAsDataURL(file)
+      })
+      // Also save to disk for persistence
       const result = await window.api.image.importBuffer({ buffer, filename: file.name })
       if (result.success && result.data) {
-        const imgPath = result.data.filePath
         const newLayer: ImageLayer = {
           id: uuid(),
           type: 'image',
@@ -185,7 +191,7 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
           opacity: 1,
           visible: true,
           locked: false,
-          src: imgPath,
+          src: dataUrl,
           fit: 'contain',
           filters: { brightness: 0, contrast: 0, saturation: 0, blur: 0, grayscale: false }
         }
@@ -270,6 +276,11 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
           input.onchange = async (): Promise<void> => {
             const file = input.files?.[0]
             if (!file) return
+            const dataUrl2 = await new Promise<string>((resolve) => {
+              const reader = new FileReader()
+              reader.onload = () => resolve(reader.result as string)
+              reader.readAsDataURL(file)
+            })
             const arrayBuffer = await file.arrayBuffer()
             const buffer = Array.from(new Uint8Array(arrayBuffer))
             const result = await window.api.image.importBuffer({ buffer, filename: file.name })
@@ -290,7 +301,7 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
                 opacity: 1,
                 visible: true,
                 locked: false,
-                src: result.data.filePath,
+                src: dataUrl2,
                 fit: 'contain',
                 filters: { brightness: 0, contrast: 0, saturation: 0, blur: 0, grayscale: false }
               }
