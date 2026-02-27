@@ -1,13 +1,13 @@
 import React from "react"
 import { useRef, useCallback, useEffect, useState, type DragEvent as ReactDragEvent } from 'react'
 import { v4 as uuid } from 'uuid'
-import { Stage, Layer, Rect, Text, Line, Image as KonvaImage, Transformer } from 'react-konva'
+import { Stage, Layer, Rect, Text, Line, Image as KonvaImage, Transformer, Group } from 'react-konva'
 import type Konva from 'konva'
 import { useEditorStore } from '../../stores/editorStore'
-import type { Layer as LayerType, TextLayer, ShapeLayer, ImageLayer, ComponentLayer as ComponentLayerType } from '../../types'
+import type { Layer as LayerType, TextLayer, ShapeLayer, ImageLayer, ComponentLayer as ComponentLayerType, GroupLayer } from '../../types'
 import { ComponentLayerRenderer } from './ComponentLayerRenderer'
 import { useImage } from '../../hooks/useImage'
-import { snapToGrid, getSnapLines, type SnapLine } from '../../lib/snapping'
+import { snapToGrid, getSnapLines, type SnapLine, type SnapConfig } from '../../lib/snapping'
 import { Rulers } from './Rulers'
 import { LayoutGuides } from './LayoutGuides'
 import { useContextMenu } from '../../hooks/useContextMenu'
@@ -52,7 +52,9 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
   const zoom = useEditorStore((s) => s.zoom)
   const panOffset = useEditorStore((s) => s.panOffset)
   const mode = useEditorStore((s) => s.mode)
-  const snapEnabled = useEditorStore((s) => s.snapToGrid)
+  const snapToGridEnabled = useEditorStore((s) => s.snapToGrid)
+  const snapToElements = useEditorStore((s) => s.snapToElements)
+  const snapToCanvas = useEditorStore((s) => s.snapToCanvas)
   const gridSize = useEditorStore((s) => s.gridSize)
   const showRulers = useEditorStore((s) => s.showRulers)
   const showLayoutGuides = useEditorStore((s) => s.showLayoutGuides)
@@ -312,7 +314,7 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
   const handleDragMove = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {
       const node = e.target
-      if (!snapEnabled) {
+      if (!snapToGridEnabled && !snapToElements && !snapToCanvas) {
         setSnapLines([])
         return
       }
@@ -326,24 +328,34 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
         .map((l) => stage.findOne(`#${l.id}`))
         .filter(Boolean) as Konva.Node[]
 
-      // Grid snapping
       const gridPx = gridSize * SCREEN_SCALE
       let newX = node.x()
       let newY = node.y()
 
+      // Build snap config
+      const snapConfig: SnapConfig = {
+        snapToGrid: snapToGridEnabled,
+        snapToElements,
+        snapToCanvas,
+        gridSize: gridPx,
+        zoom,
+        canvasWidth: cardW,
+        canvasHeight: cardH
+      }
+
       // Element-to-element snapping
-      const snap = getSnapLines(node, allNodes)
+      const snap = getSnapLines(node, allNodes, snapConfig)
       if (snap.x !== null) newX = snap.x
-      else newX = snapToGrid(newX, gridPx)
+      else if (snapToGridEnabled) newX = snapToGrid(newX, gridPx)
 
       if (snap.y !== null) newY = snap.y
-      else newY = snapToGrid(newY, gridPx)
+      else if (snapToGridEnabled) newY = snapToGrid(newY, gridPx)
 
       node.x(newX)
       node.y(newY)
       setSnapLines(snap.lines)
     },
-    [snapEnabled, gridSize, layers]
+    [snapToGridEnabled, snapToElements, snapToCanvas, gridSize, zoom, layers, cardW, cardH]
   )
 
   const handleDragEnd = useCallback(
@@ -443,6 +455,20 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
             layer={cl}
             cardData={currentCard}
           />
+        )
+      }
+      case 'group': {
+        const gl = layer as GroupLayer
+        return (
+          <Group
+            {...commonProps}
+          >
+            {gl.children.map((child) => {
+              // Render children with adjusted positions (already relative to group)
+              const childElement = renderLayer(child)
+              return childElement
+            })}
+          </Group>
         )
       }
       default:
@@ -584,27 +610,38 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
           {layers.map(renderLayer)}
 
           {/* Snap guide lines */}
-          {snapLines.map((line, i) =>
-            line.direction === 'vertical' ? (
+          {snapLines.map((line) => {
+            // Different colors for different snap types
+            const strokeColor = line.type === 'center' ? '#ff00ff' : '#00aaff'
+            const strokeWidth = line.type === 'center' ? 2 : 1
+            const dash = line.type === 'center' ? [8, 4] : [4, 4]
+
+            return line.direction === 'vertical' ? (
               <Line
-                key={`snap-${i}`}
-                points={[line.position, -bleed, line.position, cardH + bleed]}
-                stroke="#00aaff"
-                strokeWidth={1}
-                dash={[4, 4]}
+                key={line.id}
+                points={[line.position, line.start, line.position, line.end]}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth / zoom}
+                dash={dash}
                 listening={false}
+                shadowColor={strokeColor}
+                shadowBlur={4 / zoom}
+                shadowOpacity={0.6}
               />
             ) : (
               <Line
-                key={`snap-${i}`}
-                points={[-bleed, line.position, cardW + bleed, line.position]}
-                stroke="#00aaff"
-                strokeWidth={1}
-                dash={[4, 4]}
+                key={line.id}
+                points={[line.start, line.position, line.end, line.position]}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth / zoom}
+                dash={dash}
                 listening={false}
+                shadowColor={strokeColor}
+                shadowBlur={4 / zoom}
+                shadowOpacity={0.6}
               />
             )
-          )}
+          })}
 
           {/* Transformer */}
           <Transformer

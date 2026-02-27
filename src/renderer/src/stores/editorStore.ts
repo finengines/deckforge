@@ -90,12 +90,24 @@ interface EditorStore extends EditorState {
   selectLayers: (ids: string[]) => void
   reorderLayers: (ids: string[]) => void
   duplicateLayer: (id: string) => void
+  groupLayers: (ids: string[]) => void
+  ungroupLayer: (groupId: string) => void
+  sendBackward: (ids: string[]) => void
+  bringForward: (ids: string[]) => void
+  sendToBack: (ids: string[]) => void
+  bringToFront: (ids: string[]) => void
+  toggleLockLayers: (ids: string[]) => void
 
   // --- Canvas ---
   setZoom: (zoom: number) => void
+  zoomIn: () => void
+  zoomOut: () => void
+  zoomToFit: () => void
   setPanOffset: (offset: Point) => void
   setEditingSide: (side: 'front' | 'back') => void
   toggleSnapToGrid: () => void
+  toggleSnapToElements: () => void
+  toggleSnapToCanvas: () => void
   setGridSize: (size: number) => void
   toggleRulers: () => void
   toggleGuides: () => void
@@ -117,6 +129,8 @@ export const useEditorStore = create<EditorStore>()(
       zoom: 1,
       panOffset: { x: 0, y: 0 },
       snapToGrid: true,
+      snapToElements: true,
+      snapToCanvas: true,
       gridSize: 10,
       showRulers: true,
       showGuides: true,
@@ -412,10 +426,251 @@ export const useEditorStore = create<EditorStore>()(
           s.selectedLayerIds = [clone.id]
         }),
 
+      groupLayers: (ids) =>
+        set((s) => {
+          if (!s.currentDeck || ids.length < 2) return
+          const template =
+            s.editingSide === 'front'
+              ? s.currentDeck.frontTemplate
+              : s.currentDeck.backTemplate
+          const useBack = s.editingSide === 'back' && template.backLayers !== null
+          const layers = useBack ? template.backLayers! : template.frontLayers
+
+          // Get layers to group (preserve order)
+          const layersToGroup = layers.filter((l) => ids.includes(l.id))
+          if (layersToGroup.length < 2) return
+
+          // Calculate bounding box
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+          for (const layer of layersToGroup) {
+            minX = Math.min(minX, layer.x)
+            minY = Math.min(minY, layer.y)
+            maxX = Math.max(maxX, layer.x + layer.width)
+            maxY = Math.max(maxY, layer.y + layer.height)
+          }
+
+          // Create group
+          const group: Layer = {
+            id: uuid(),
+            type: 'group',
+            name: 'Group',
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY,
+            rotation: 0,
+            opacity: 1,
+            visible: true,
+            locked: false,
+            children: layersToGroup.map((l) => ({
+              ...l,
+              // Make children coordinates relative to group
+              x: l.x - minX,
+              y: l.y - minY
+            }))
+          } as any
+
+          // Remove grouped layers and add group at the position of the first layer
+          const firstIndex = layers.findIndex((l) => l.id === ids[0])
+          const filtered = layers.filter((l) => !ids.includes(l.id))
+          filtered.splice(firstIndex, 0, group)
+
+          if (useBack) {
+            template.backLayers = filtered
+          } else {
+            template.frontLayers = filtered
+          }
+
+          s.selectedLayerIds = [group.id]
+        }),
+
+      ungroupLayer: (groupId) =>
+        set((s) => {
+          if (!s.currentDeck) return
+          const template =
+            s.editingSide === 'front'
+              ? s.currentDeck.frontTemplate
+              : s.currentDeck.backTemplate
+          const useBack = s.editingSide === 'back' && template.backLayers !== null
+          const layers = useBack ? template.backLayers! : template.frontLayers
+
+          const groupIndex = layers.findIndex((l) => l.id === groupId)
+          if (groupIndex === -1) return
+          const group = layers[groupIndex]
+          if (group.type !== 'group') return
+
+          // Convert children back to absolute coordinates
+          const children = group.children.map((child: Layer) => ({
+            ...child,
+            x: child.x + group.x,
+            y: child.y + group.y
+          }))
+
+          // Replace group with its children
+          const newLayers = [
+            ...layers.slice(0, groupIndex),
+            ...children,
+            ...layers.slice(groupIndex + 1)
+          ]
+
+          if (useBack) {
+            template.backLayers = newLayers
+          } else {
+            template.frontLayers = newLayers
+          }
+
+          s.selectedLayerIds = children.map((c: Layer) => c.id)
+        }),
+
+      sendBackward: (ids) =>
+        set((s) => {
+          if (!s.currentDeck) return
+          const template =
+            s.editingSide === 'front'
+              ? s.currentDeck.frontTemplate
+              : s.currentDeck.backTemplate
+          const useBack = s.editingSide === 'back' && template.backLayers !== null
+          const layers = useBack ? template.backLayers! : template.frontLayers
+
+          // Move each selected layer one position back (lower in z-order)
+          const newLayers = [...layers]
+          for (const id of ids) {
+            const index = newLayers.findIndex((l) => l.id === id)
+            if (index > 0) {
+              ;[newLayers[index - 1], newLayers[index]] = [
+                newLayers[index],
+                newLayers[index - 1]
+              ]
+            }
+          }
+
+          if (useBack) {
+            template.backLayers = newLayers
+          } else {
+            template.frontLayers = newLayers
+          }
+        }),
+
+      bringForward: (ids) =>
+        set((s) => {
+          if (!s.currentDeck) return
+          const template =
+            s.editingSide === 'front'
+              ? s.currentDeck.frontTemplate
+              : s.currentDeck.backTemplate
+          const useBack = s.editingSide === 'back' && template.backLayers !== null
+          const layers = useBack ? template.backLayers! : template.frontLayers
+
+          // Move each selected layer one position forward (higher in z-order)
+          const newLayers = [...layers]
+          for (let i = ids.length - 1; i >= 0; i--) {
+            const id = ids[i]
+            const index = newLayers.findIndex((l) => l.id === id)
+            if (index < newLayers.length - 1) {
+              ;[newLayers[index], newLayers[index + 1]] = [
+                newLayers[index + 1],
+                newLayers[index]
+              ]
+            }
+          }
+
+          if (useBack) {
+            template.backLayers = newLayers
+          } else {
+            template.frontLayers = newLayers
+          }
+        }),
+
+      sendToBack: (ids) =>
+        set((s) => {
+          if (!s.currentDeck) return
+          const template =
+            s.editingSide === 'front'
+              ? s.currentDeck.frontTemplate
+              : s.currentDeck.backTemplate
+          const useBack = s.editingSide === 'back' && template.backLayers !== null
+          const layers = useBack ? template.backLayers! : template.frontLayers
+
+          const toMove = layers.filter((l) => ids.includes(l.id))
+          const others = layers.filter((l) => !ids.includes(l.id))
+
+          if (useBack) {
+            template.backLayers = [...toMove, ...others]
+          } else {
+            template.frontLayers = [...toMove, ...others]
+          }
+        }),
+
+      bringToFront: (ids) =>
+        set((s) => {
+          if (!s.currentDeck) return
+          const template =
+            s.editingSide === 'front'
+              ? s.currentDeck.frontTemplate
+              : s.currentDeck.backTemplate
+          const useBack = s.editingSide === 'back' && template.backLayers !== null
+          const layers = useBack ? template.backLayers! : template.frontLayers
+
+          const toMove = layers.filter((l) => ids.includes(l.id))
+          const others = layers.filter((l) => !ids.includes(l.id))
+
+          if (useBack) {
+            template.backLayers = [...others, ...toMove]
+          } else {
+            template.frontLayers = [...others, ...toMove]
+          }
+        }),
+
+      toggleLockLayers: (ids) =>
+        set((s) => {
+          if (!s.currentDeck) return
+          const template =
+            s.editingSide === 'front'
+              ? s.currentDeck.frontTemplate
+              : s.currentDeck.backTemplate
+          const layers = s.editingSide === 'back' && template.backLayers !== null
+            ? template.backLayers
+            : template.frontLayers
+
+          // Find first selected layer's lock state and toggle all to that state
+          const firstLayer = layers.find((l) => ids.includes(l.id))
+          if (!firstLayer) return
+          const newLockState = !firstLayer.locked
+
+          const updateLock = (list: Layer[]): void => {
+            for (const layer of list) {
+              if (ids.includes(layer.id)) {
+                layer.locked = newLockState
+              }
+              if (layer.type === 'group') {
+                updateLock(layer.children)
+              }
+            }
+          }
+          updateLock(layers)
+        }),
+
       // --- Canvas ---
       setZoom: (zoom) =>
         set((s) => {
           s.zoom = Math.max(0.1, Math.min(5, zoom))
+        }),
+
+      zoomIn: () =>
+        set((s) => {
+          s.zoom = Math.min(5, s.zoom * 1.2)
+        }),
+
+      zoomOut: () =>
+        set((s) => {
+          s.zoom = Math.max(0.1, s.zoom / 1.2)
+        }),
+
+      zoomToFit: () =>
+        set((s) => {
+          // Reset to 1:1 zoom and center the card
+          s.zoom = 1
+          s.panOffset = { x: 0, y: 0 }
         }),
 
       setPanOffset: (offset) =>
@@ -435,6 +690,16 @@ export const useEditorStore = create<EditorStore>()(
       toggleSnapToGrid: () =>
         set((s) => {
           s.snapToGrid = !s.snapToGrid
+        }),
+
+      toggleSnapToElements: () =>
+        set((s) => {
+          s.snapToElements = !s.snapToElements
+        }),
+
+      toggleSnapToCanvas: () =>
+        set((s) => {
+          s.snapToCanvas = !s.snapToCanvas
         }),
 
       setGridSize: (size) =>

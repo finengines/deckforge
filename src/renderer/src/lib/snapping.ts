@@ -1,14 +1,34 @@
 import type Konva from 'konva'
 
-const SNAP_THRESHOLD = 5 // pixels
+const BASE_SNAP_THRESHOLD = 5 // base pixels threshold
+
+export interface SnapConfig {
+  /** Snap to grid */
+  snapToGrid: boolean
+  /** Snap to other elements */
+  snapToElements: boolean
+  /** Snap to canvas center and edges */
+  snapToCanvas: boolean
+  /** Grid size in mm */
+  gridSize: number
+  /** Current zoom level (affects snap threshold) */
+  zoom: number
+  /** Canvas dimensions in px (for canvas snapping) */
+  canvasWidth: number
+  canvasHeight: number
+}
 
 export function snapToGrid(value: number, gridSize: number): number {
   return Math.round(value / gridSize) * gridSize
 }
 
 export interface SnapLine {
+  id: string
   direction: 'horizontal' | 'vertical'
-  position: number
+  position: number // in canvas coordinates
+  start: number
+  end: number
+  type: 'edge' | 'center' | 'element'
 }
 
 interface NodeBounds {
@@ -18,6 +38,8 @@ interface NodeBounds {
   bottom: number
   centerX: number
   centerY: number
+  width: number
+  height: number
 }
 
 function getNodeBounds(node: Konva.Node): NodeBounds {
@@ -28,7 +50,9 @@ function getNodeBounds(node: Konva.Node): NodeBounds {
     top: box.y,
     bottom: box.y + box.height,
     centerX: box.x + box.width / 2,
-    centerY: box.y + box.height / 2
+    centerY: box.y + box.height / 2,
+    width: box.width,
+    height: box.height
   }
 }
 
@@ -38,92 +62,156 @@ export interface SnapResult {
   lines: SnapLine[]
 }
 
-export function getSnapLines(movingNode: Konva.Node, allNodes: Konva.Node[]): SnapResult {
+/**
+ * Get snap lines for a moving node, adapted from Penpot and Onlook
+ * Includes canvas-aware snapping (edges, center) and zoom-aware threshold
+ */
+export function getSnapLines(
+  movingNode: Konva.Node,
+  allNodes: Konva.Node[],
+  config: SnapConfig
+): SnapResult {
   const moving = getNodeBounds(movingNode)
   const lines: SnapLine[] = []
   let snapX: number | null = null
   let snapY: number | null = null
-  let minDX = SNAP_THRESHOLD
-  let minDY = SNAP_THRESHOLD
+  
+  // Zoom-aware threshold (like Penpot's snap-accuracy)
+  const threshold = BASE_SNAP_THRESHOLD / config.zoom
+  
+  let minDX = threshold
+  let minDY = threshold
 
-  for (const other of allNodes) {
-    if (other === movingNode || other.id() === movingNode.id()) continue
-    const b = getNodeBounds(other)
+  const snapTargets: Array<{
+    position: number
+    type: 'edge' | 'center' | 'element'
+    direction: 'horizontal' | 'vertical'
+    bounds?: NodeBounds
+  }> = []
 
-    // Vertical snaps (x-axis alignment)
-    const vChecks = [
-      { moving: moving.left, target: b.left },
-      { moving: moving.left, target: b.right },
-      { moving: moving.right, target: b.left },
-      { moving: moving.right, target: b.right },
-      { moving: moving.centerX, target: b.centerX }
-    ]
-    for (const { moving: m, target: t } of vChecks) {
-      const d = Math.abs(m - t)
-      if (d < minDX) {
-        minDX = d
-        snapX = movingNode.x() + (t - m)
-        // We'll add the line at the target position
-      }
-    }
+  // --- Canvas snap points (if enabled) ---
+  if (config.snapToCanvas) {
+    const canvasCenterX = config.canvasWidth / 2
+    const canvasCenterY = config.canvasHeight / 2
 
-    // Horizontal snaps (y-axis alignment)
-    const hChecks = [
-      { moving: moving.top, target: b.top },
-      { moving: moving.top, target: b.bottom },
-      { moving: moving.bottom, target: b.top },
-      { moving: moving.bottom, target: b.bottom },
-      { moving: moving.centerY, target: b.centerY }
-    ]
-    for (const { moving: m, target: t } of hChecks) {
-      const d = Math.abs(m - t)
-      if (d < minDY) {
-        minDY = d
-        snapY = movingNode.y() + (t - m)
-      }
-    }
+    // Vertical canvas snaps (edges and center)
+    snapTargets.push(
+      { position: 0, type: 'edge', direction: 'vertical' },
+      { position: config.canvasWidth, type: 'edge', direction: 'vertical' },
+      { position: canvasCenterX, type: 'center', direction: 'vertical' }
+    )
+
+    // Horizontal canvas snaps (edges and center)
+    snapTargets.push(
+      { position: 0, type: 'edge', direction: 'horizontal' },
+      { position: config.canvasHeight, type: 'edge', direction: 'horizontal' },
+      { position: canvasCenterY, type: 'center', direction: 'horizontal' }
+    )
   }
 
-  // Rebuild lines based on final snap positions
-  if (snapX !== null) {
-    // Recalculate the snapped moving bounds
-    const dx = snapX - movingNode.x()
-    const snappedLeft = moving.left + dx
-    const snappedRight = moving.right + dx
-    const snappedCX = moving.centerX + dx
+  // --- Element snap points (if enabled) ---
+  if (config.snapToElements) {
     for (const other of allNodes) {
       if (other === movingNode || other.id() === movingNode.id()) continue
       const b = getNodeBounds(other)
-      for (const pos of [b.left, b.right, b.centerX]) {
-        if (
-          Math.abs(snappedLeft - pos) < 1 ||
-          Math.abs(snappedRight - pos) < 1 ||
-          Math.abs(snappedCX - pos) < 1
-        ) {
-          lines.push({ direction: 'vertical', position: pos })
+
+      // Vertical snaps (left, right, center)
+      snapTargets.push(
+        { position: b.left, type: 'element', direction: 'vertical', bounds: b },
+        { position: b.right, type: 'element', direction: 'vertical', bounds: b },
+        { position: b.centerX, type: 'element', direction: 'vertical', bounds: b }
+      )
+
+      // Horizontal snaps (top, bottom, center)
+      snapTargets.push(
+        { position: b.top, type: 'element', direction: 'horizontal', bounds: b },
+        { position: b.bottom, type: 'element', direction: 'horizontal', bounds: b },
+        { position: b.centerY, type: 'element', direction: 'horizontal', bounds: b }
+      )
+    }
+  }
+
+  // --- Calculate snaps ---
+  const vSnaps: Array<{ offset: number; position: number; target: typeof snapTargets[0] }> = []
+  const hSnaps: Array<{ offset: number; position: number; target: typeof snapTargets[0] }> = []
+
+  for (const target of snapTargets) {
+    if (target.direction === 'vertical') {
+      // Check moving node's left, right, center against this target
+      const checks = [
+        { edge: moving.left, name: 'left' },
+        { edge: moving.right, name: 'right' },
+        { edge: moving.centerX, name: 'center' }
+      ]
+      
+      for (const check of checks) {
+        const distance = Math.abs(check.edge - target.position)
+        if (distance < minDX) {
+          const offset = target.position - check.edge
+          vSnaps.push({ offset, position: target.position, target })
+          minDX = distance
+        }
+      }
+    } else {
+      // Horizontal
+      const checks = [
+        { edge: moving.top, name: 'top' },
+        { edge: moving.bottom, name: 'bottom' },
+        { edge: moving.centerY, name: 'center' }
+      ]
+      
+      for (const check of checks) {
+        const distance = Math.abs(check.edge - target.position)
+        if (distance < minDY) {
+          const offset = target.position - check.edge
+          hSnaps.push({ offset, position: target.position, target })
+          minDY = distance
         }
       }
     }
   }
 
-  if (snapY !== null) {
-    const dy = snapY - movingNode.y()
-    const snappedTop = moving.top + dy
-    const snappedBottom = moving.bottom + dy
-    const snappedCY = moving.centerY + dy
-    for (const other of allNodes) {
-      if (other === movingNode || other.id() === movingNode.id()) continue
-      const b = getNodeBounds(other)
-      for (const pos of [b.top, b.bottom, b.centerY]) {
-        if (
-          Math.abs(snappedTop - pos) < 1 ||
-          Math.abs(snappedBottom - pos) < 1 ||
-          Math.abs(snappedCY - pos) < 1
-        ) {
-          lines.push({ direction: 'horizontal', position: pos })
-        }
-      }
-    }
+  // --- Apply best snaps ---
+  if (vSnaps.length > 0) {
+    // Take the best vertical snap (smallest distance)
+    vSnaps.sort((a, b) => Math.abs(a.offset) - Math.abs(b.offset))
+    const best = vSnaps[0]
+    snapX = movingNode.x() + best.offset
+
+    // Create visual line
+    const lineExtension = 160
+    const start = Math.min(moving.top, best.target.bounds?.top ?? 0) - lineExtension
+    const end = Math.max(moving.bottom, best.target.bounds?.bottom ?? config.canvasHeight) + lineExtension
+
+    lines.push({
+      id: `v-${best.position}`,
+      direction: 'vertical',
+      position: best.position,
+      start,
+      end,
+      type: best.target.type
+    })
+  }
+
+  if (hSnaps.length > 0) {
+    // Take the best horizontal snap
+    hSnaps.sort((a, b) => Math.abs(a.offset) - Math.abs(b.offset))
+    const best = hSnaps[0]
+    snapY = movingNode.y() + best.offset
+
+    // Create visual line
+    const lineExtension = 160
+    const start = Math.min(moving.left, best.target.bounds?.left ?? 0) - lineExtension
+    const end = Math.max(moving.right, best.target.bounds?.right ?? config.canvasWidth) + lineExtension
+
+    lines.push({
+      id: `h-${best.position}`,
+      direction: 'horizontal',
+      position: best.position,
+      start,
+      end,
+      type: best.target.type
+    })
   }
 
   return { x: snapX, y: snapY, lines }

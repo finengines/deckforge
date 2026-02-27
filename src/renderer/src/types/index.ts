@@ -323,6 +323,10 @@ export interface EditorState {
   panOffset: Point
   /** Snap to grid */
   snapToGrid: boolean
+  /** Snap to other elements */
+  snapToElements: boolean
+  /** Snap to canvas center and edges */
+  snapToCanvas: boolean
   /** Grid size in px */
   gridSize: number
   /** Show rulers */

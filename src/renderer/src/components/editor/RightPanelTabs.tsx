@@ -73,11 +73,18 @@ export function RightPanelTabs(): React.JSX.Element {
       </div>
 
       {/* Tab content */}
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        WebkitOverflowScrolling: 'touch'
+      }}>
         {activeTab === 'layers' && <LayerPanel />}
         {activeTab === 'properties' && <PropertiesPanel />}
         {activeTab === 'components' && (
-          <div style={{ flex: 1, overflow: 'auto' }}>
+          <div style={{ flex: 1 }}>
             <ComponentLibrary
               onAddLayers={(layers) => {
                 const store = useEditorStore.getState()
@@ -87,7 +94,7 @@ export function RightPanelTabs(): React.JSX.Element {
           </div>
         )}
         {activeTab === 'assets' && (
-          <div style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ flex: 1 }}>
             <AssetBrowser compact />
           </div>
         )}
