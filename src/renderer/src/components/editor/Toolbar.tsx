@@ -27,15 +27,18 @@ export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): React.JSX.Elemen
   const view = useEditorStore((s) => s.view)
   const mode = useEditorStore((s) => s.mode)
   const zoom = useEditorStore((s) => s.zoom)
-  const deckName = useEditorStore((s) => s.currentDeck?.name ?? '')
+  const deck = useEditorStore((s) => s.currentDeck)
+  const deckName = deck?.name ?? ''
   const editingSide = useEditorStore((s) => s.editingSide)
   const showLayoutGuides = useEditorStore((s) => s.showLayoutGuides)
   const showGrid = useEditorStore((s) => s.showGrid)
   const selectedLayerIds = useEditorStore((s) => s.selectedLayerIds)
+  const selectedCardId = useEditorStore((s) => s.selectedCardId)
   const setView = useEditorStore((s) => s.setView)
   const setMode = useEditorStore((s) => s.setMode)
   const setZoom = useEditorStore((s) => s.setZoom)
   const setEditingSide = useEditorStore((s) => s.setEditingSide)
+  const selectCard = useEditorStore((s) => s.selectCard)
   const toggleLayoutGuides = useEditorStore((s) => s.toggleLayoutGuides)
   const toggleGrid = useEditorStore((s) => s.toggleGrid)
   const alignLayers = useEditorStore((s) => s.alignLayers)
@@ -98,6 +101,42 @@ export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): React.JSX.Elemen
             >
               Back
             </button>
+          </div>
+
+          <div className="toolbar-separator" />
+
+          {/* Base Template label + Card preview selector */}
+          <div className="toolbar-group" style={{ alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>
+              📐 Base Template
+            </span>
+            {deck && deck.cards.length > 0 && (
+              <>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>→</span>
+                <Tooltip text="Preview template with card data" position="bottom">
+                  <select
+                    value={selectedCardId ?? ''}
+                    onChange={(e) => selectCard(e.target.value || null)}
+                    style={{
+                      fontSize: 11,
+                      padding: '3px 6px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="">No Preview</option>
+                    {deck.cards.map((card, idx) => (
+                      <option key={card.id} value={card.id}>
+                        {idx + 1}. {card.name}
+                      </option>
+                    ))}
+                  </select>
+                </Tooltip>
+              </>
+            )}
           </div>
 
           <div className="toolbar-separator" />

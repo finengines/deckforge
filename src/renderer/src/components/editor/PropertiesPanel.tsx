@@ -1,7 +1,8 @@
 import React, { useState } from "react"
+import { v4 as uuid } from 'uuid'
 import { useEditorStore } from '../../stores/editorStore'
 import { ColorPicker } from '../ColorPicker'
-import type { Layer, TextLayer, ShapeLayer } from '../../types'
+import type { Layer, TextLayer, ShapeLayer, Fill, Stroke, Shadow } from '../../types'
 
 function PropSection({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }): React.JSX.Element {
   const [open, setOpen] = useState(defaultOpen)
@@ -171,6 +172,357 @@ export const PropertiesPanel = React.memo(function PropertiesPanel(): React.JSX.
             />
           </div>
         </PropSection>
+
+        {/* Fill/Stroke/Shadow/Blur for all layer types except groups */}
+        {selectedLayer.type !== 'group' && (
+          <>
+            <PropSection title="Fill" defaultOpen={false}>
+              <div className="form-group">
+                {(selectedLayer.fills || []).map((fill, idx) => (
+                  <div key={fill.id} style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 4 }}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ padding: 2, fontSize: 10 }}
+                      onClick={() => {
+                        const fills = [...(selectedLayer.fills || [])]
+                        fills[idx].hidden = !fills[idx].hidden
+                        update({ fills })
+                      }}
+                      title={fill.hidden ? 'Show' : 'Hide'}
+                    >
+                      {fill.hidden ? '🚫' : '👁'}
+                    </button>
+                    <div style={{ flex: 1 }}>
+                      <input
+                        type="color"
+                        value={fill.color}
+                        onChange={(e) => {
+                          const fills = [...(selectedLayer.fills || [])]
+                          fills[idx].color = e.target.value
+                          update({ fills })
+                        }}
+                        style={{ width: 30, height: 20, border: 'none', borderRadius: 3, cursor: 'pointer' }}
+                      />
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={fill.opacity * 100}
+                      onChange={(e) => {
+                        const fills = [...(selectedLayer.fills || [])]
+                        fills[idx].opacity = parseInt(e.target.value) / 100
+                        update({ fills })
+                      }}
+                      style={{ flex: 2 }}
+                    />
+                    <span style={{ fontSize: 10, minWidth: 30 }}>{Math.round(fill.opacity * 100)}%</span>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ padding: 2, fontSize: 10 }}
+                      onClick={() => {
+                        const fills = (selectedLayer.fills || []).filter((_, i) => i !== idx)
+                        update({ fills })
+                      }}
+                      title="Remove"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => {
+                    const fills = [...(selectedLayer.fills || []), {
+                      id: uuid(),
+                      color: '#000000',
+                      opacity: 1,
+                      hidden: false
+                    } as Fill]
+                    update({ fills })
+                  }}
+                  style={{ width: '100%', marginTop: 4 }}
+                >
+                  + Add Fill
+                </button>
+              </div>
+            </PropSection>
+
+            <PropSection title="Stroke" defaultOpen={false}>
+              <div className="form-group">
+                {(selectedLayer.strokes || []).map((stroke, idx) => (
+                  <div key={stroke.id} style={{ marginBottom: 8, padding: 6, background: 'var(--bg-tertiary)', borderRadius: 4 }}>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 4 }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ padding: 2, fontSize: 10 }}
+                        onClick={() => {
+                          const strokes = [...(selectedLayer.strokes || [])]
+                          strokes[idx].hidden = !strokes[idx].hidden
+                          update({ strokes })
+                        }}
+                        title={stroke.hidden ? 'Show' : 'Hide'}
+                      >
+                        {stroke.hidden ? '🚫' : '👁'}
+                      </button>
+                      <input
+                        type="color"
+                        value={stroke.color}
+                        onChange={(e) => {
+                          const strokes = [...(selectedLayer.strokes || [])]
+                          strokes[idx].color = e.target.value
+                          update({ strokes })
+                        }}
+                        style={{ width: 30, height: 20, border: 'none', borderRadius: 3, cursor: 'pointer' }}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={stroke.width}
+                        onChange={(e) => {
+                          const strokes = [...(selectedLayer.strokes || [])]
+                          strokes[idx].width = parseFloat(e.target.value) || 0
+                          update({ strokes })
+                        }}
+                        placeholder="Width"
+                        className="input"
+                        style={{ flex: 1, fontSize: 10 }}
+                      />
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ padding: 2, fontSize: 10 }}
+                        onClick={() => {
+                          const strokes = (selectedLayer.strokes || []).filter((_, i) => i !== idx)
+                          update({ strokes })
+                        }}
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <select
+                        value={stroke.style}
+                        onChange={(e) => {
+                          const strokes = [...(selectedLayer.strokes || [])]
+                          strokes[idx].style = e.target.value as 'solid' | 'dashed' | 'dotted'
+                          update({ strokes })
+                        }}
+                        className="input"
+                        style={{ flex: 1, fontSize: 10 }}
+                      >
+                        <option value="solid">Solid</option>
+                        <option value="dashed">Dashed</option>
+                        <option value="dotted">Dotted</option>
+                      </select>
+                      <select
+                        value={stroke.alignment}
+                        onChange={(e) => {
+                          const strokes = [...(selectedLayer.strokes || [])]
+                          strokes[idx].alignment = e.target.value as 'inside' | 'center' | 'outside'
+                          update({ strokes })
+                        }}
+                        className="input"
+                        style={{ flex: 1, fontSize: 10 }}
+                      >
+                        <option value="inside">Inside</option>
+                        <option value="center">Center</option>
+                        <option value="outside">Outside</option>
+                      </select>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => {
+                    const strokes = [...(selectedLayer.strokes || []), {
+                      id: uuid(),
+                      color: '#000000',
+                      width: 1,
+                      style: 'solid',
+                      alignment: 'center',
+                      opacity: 1,
+                      hidden: false
+                    } as Stroke]
+                    update({ strokes })
+                  }}
+                  style={{ width: '100%', marginTop: 4 }}
+                >
+                  + Add Stroke
+                </button>
+              </div>
+            </PropSection>
+
+            <PropSection title="Shadow" defaultOpen={false}>
+              <div className="form-group">
+                {(selectedLayer.shadows || []).map((shadow, idx) => (
+                  <div key={shadow.id} style={{ marginBottom: 8, padding: 6, background: 'var(--bg-tertiary)', borderRadius: 4 }}>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 4 }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ padding: 2, fontSize: 10 }}
+                        onClick={() => {
+                          const shadows = [...(selectedLayer.shadows || [])]
+                          shadows[idx].hidden = !shadows[idx].hidden
+                          update({ shadows })
+                        }}
+                        title={shadow.hidden ? 'Show' : 'Hide'}
+                      >
+                        {shadow.hidden ? '🚫' : '👁'}
+                      </button>
+                      <select
+                        value={shadow.style}
+                        onChange={(e) => {
+                          const shadows = [...(selectedLayer.shadows || [])]
+                          shadows[idx].style = e.target.value as 'drop' | 'inner'
+                          update({ shadows })
+                        }}
+                        className="input"
+                        style={{ flex: 1, fontSize: 10 }}
+                      >
+                        <option value="drop">Drop</option>
+                        <option value="inner">Inner</option>
+                      </select>
+                      <input
+                        type="color"
+                        value={shadow.color}
+                        onChange={(e) => {
+                          const shadows = [...(selectedLayer.shadows || [])]
+                          shadows[idx].color = e.target.value
+                          update({ shadows })
+                        }}
+                        style={{ width: 30, height: 20, border: 'none', borderRadius: 3, cursor: 'pointer' }}
+                      />
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ padding: 2, fontSize: 10 }}
+                        onClick={() => {
+                          const shadows = (selectedLayer.shadows || []).filter((_, i) => i !== idx)
+                          update({ shadows })
+                        }}
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, fontSize: 10 }}>
+                      <input
+                        type="number"
+                        value={shadow.offsetX}
+                        onChange={(e) => {
+                          const shadows = [...(selectedLayer.shadows || [])]
+                          shadows[idx].offsetX = parseFloat(e.target.value) || 0
+                          update({ shadows })
+                        }}
+                        placeholder="X"
+                        className="input"
+                      />
+                      <input
+                        type="number"
+                        value={shadow.offsetY}
+                        onChange={(e) => {
+                          const shadows = [...(selectedLayer.shadows || [])]
+                          shadows[idx].offsetY = parseFloat(e.target.value) || 0
+                          update({ shadows })
+                        }}
+                        placeholder="Y"
+                        className="input"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        value={shadow.blur}
+                        onChange={(e) => {
+                          const shadows = [...(selectedLayer.shadows || [])]
+                          shadows[idx].blur = parseFloat(e.target.value) || 0
+                          update({ shadows })
+                        }}
+                        placeholder="Blur"
+                        className="input"
+                      />
+                      <input
+                        type="number"
+                        value={shadow.spread}
+                        onChange={(e) => {
+                          const shadows = [...(selectedLayer.shadows || [])]
+                          shadows[idx].spread = parseFloat(e.target.value) || 0
+                          update({ shadows })
+                        }}
+                        placeholder="Spread"
+                        className="input"
+                      />
+                    </div>
+                  </div>
+                ))}
+                <button
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => {
+                    const shadows = [...(selectedLayer.shadows || []), {
+                      id: uuid(),
+                      style: 'drop',
+                      color: '#000000',
+                      opacity: 0.5,
+                      offsetX: 0,
+                      offsetY: 2,
+                      blur: 4,
+                      spread: 0,
+                      hidden: false
+                    } as Shadow]
+                    update({ shadows })
+                  }}
+                  style={{ width: '100%', marginTop: 4 }}
+                >
+                  + Add Shadow
+                </button>
+              </div>
+            </PropSection>
+
+            <PropSection title="Blur" defaultOpen={false}>
+              <div className="form-group">
+                <label className="input-label">
+                  <input
+                    type="checkbox"
+                    checked={!(selectedLayer.blur?.hidden ?? true)}
+                    onChange={(e) => {
+                      update({
+                        blur: {
+                          value: selectedLayer.blur?.value ?? 5,
+                          hidden: !e.target.checked
+                        }
+                      })
+                    }}
+                    style={{ marginRight: 6 }}
+                  />
+                  Enable Blur
+                </label>
+                {selectedLayer.blur && !selectedLayer.blur.hidden && (
+                  <>
+                    <label className="input-label" style={{ marginTop: 8 }}>
+                      Blur: {selectedLayer.blur.value.toFixed(1)} px
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="50"
+                      step="0.5"
+                      value={selectedLayer.blur.value}
+                      onChange={(e) => {
+                        update({
+                          blur: {
+                            ...selectedLayer.blur!,
+                            value: parseFloat(e.target.value)
+                          }
+                        })
+                      }}
+                      style={{ width: '100%' }}
+                    />
+                  </>
+                )}
+              </div>
+            </PropSection>
+          </>
+        )}
 
         <PropSection title="Data Binding" defaultOpen={false}>
           <div className="form-group">

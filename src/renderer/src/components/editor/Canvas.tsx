@@ -2,9 +2,9 @@ import React from "react"
 import { useRef, useCallback, useEffect, useState, type DragEvent as ReactDragEvent } from 'react'
 import { v4 as uuid } from 'uuid'
 import { Stage, Layer, Rect, Text, Line, Image as KonvaImage, Transformer, Group } from 'react-konva'
-import type Konva from 'konva'
+import Konva from 'konva'
 import { useEditorStore } from '../../stores/editorStore'
-import type { Layer as LayerType, TextLayer, ShapeLayer, ImageLayer, ComponentLayer as ComponentLayerType, GroupLayer } from '../../types'
+import type { Layer as LayerType, TextLayer, ShapeLayer, ImageLayer, ComponentLayer as ComponentLayerType, GroupLayer, CardData, CardCategory } from '../../types'
 import { ComponentLayerRenderer } from './ComponentLayerRenderer'
 import { useImage } from '../../hooks/useImage'
 import { snapToGrid, getSnapLines, type SnapLine, type SnapConfig } from '../../lib/snapping'
@@ -17,15 +17,38 @@ import { ImageCropDialog, type CropParams } from '../ImageCropDialog'
 /** Scale factor for canvas display: 3px per mm for comfortable editing */
 const SCREEN_SCALE = 3
 
+// ---------- Helper: Resolve bound layer data ----------
+function resolveBindTo(layer: LayerType, card: CardData | null, categories: CardCategory[]): string | undefined {
+  if (!layer.bindTo) return undefined
+  if (!card) return `{{${layer.bindTo}}}`
+  
+  switch (layer.bindTo) {
+    case 'name': return card.name
+    case 'description': return card.description || ''
+    case 'funFact': return card.funFact || ''
+    case 'image': return card.image
+    default:
+      if (layer.bindTo.startsWith('stat:')) {
+        const catId = layer.bindTo.slice(5)
+        const cat = categories.find(c => c.id === catId)
+        const val = card.stats[catId]
+        return val !== undefined ? `${val}${cat?.unit ? ' ' + cat.unit : ''}` : '—'
+      }
+      return undefined
+  }
+}
+
 // ---------- Image layer sub-component ----------
 function ImageLayerNode({
   layer,
-  commonProps
+  commonProps,
+  resolvedSrc
 }: {
   layer: ImageLayer
   commonProps: Record<string, unknown>
+  resolvedSrc?: string
 }): React.JSX.Element {
-  const [image, status] = useImage(layer.src)
+  const [image, status] = useImage(resolvedSrc || layer.src)
 
   if (status === 'loaded' && image) {
     return <KonvaImage {...commonProps} image={image} />
@@ -75,6 +98,16 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
   const [isDragOver, setIsDragOver] = useState(false)
   const [isPanning, setIsPanning] = useState(false)
   const [selectionBox, setSelectionBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
+  const [distanceIndicators, setDistanceIndicators] = useState<Array<{
+    id: string
+    x1: number
+    y1: number
+    x2: number
+    y2: number
+    distance: number
+    axis: 'h' | 'v'
+  }>>([])
+
   const panStartRef = useRef<{ x: number; y: number } | null>(null)
   const selectionStartRef = useRef<{ x: number; y: number } | null>(null)
   const { menu, showMenu, hideMenu } = useContextMenu()
@@ -346,6 +379,7 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
       const node = e.target
       if (!snapToGridEnabled && !snapToElements && !snapToCanvas) {
         setSnapLines([])
+        setDistanceIndicators([])
         return
       }
 
@@ -384,6 +418,98 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
       node.x(newX)
       node.y(newY)
       setSnapLines(snap.lines)
+
+      // Calculate distance indicators
+      const indicators: typeof distanceIndicators = []
+      const nodeBox = {
+        x: newX,
+        y: newY,
+        width: node.width(),
+        height: node.height()
+      }
+
+      const DISTANCE_THRESHOLD_MM = 50
+      const DISTANCE_THRESHOLD_PX = DISTANCE_THRESHOLD_MM * SCREEN_SCALE
+
+      // Check horizontal distances
+      for (const otherNode of allNodes) {
+        const otherBox = {
+          x: otherNode.x(),
+          y: otherNode.y(),
+          width: otherNode.width(),
+          height: otherNode.height()
+        }
+
+        // Check if they overlap vertically (so horizontal distance makes sense)
+        const vOverlap = !(nodeBox.y + nodeBox.height < otherBox.y || nodeBox.y > otherBox.y + otherBox.height)
+        
+        if (vOverlap) {
+          let distance = 0
+          let x1 = 0
+          let x2 = 0
+
+          if (nodeBox.x + nodeBox.width < otherBox.x) {
+            // Node is to the left of other
+            distance = otherBox.x - (nodeBox.x + nodeBox.width)
+            x1 = nodeBox.x + nodeBox.width
+            x2 = otherBox.x
+          } else if (otherBox.x + otherBox.width < nodeBox.x) {
+            // Node is to the right of other
+            distance = nodeBox.x - (otherBox.x + otherBox.width)
+            x1 = otherBox.x + otherBox.width
+            x2 = nodeBox.x
+          }
+
+          if (distance > 0 && distance < DISTANCE_THRESHOLD_PX) {
+            const midY = Math.max(nodeBox.y, otherBox.y) + Math.min(nodeBox.y + nodeBox.height, otherBox.y + otherBox.height - Math.max(nodeBox.y, otherBox.y)) / 2
+            indicators.push({
+              id: `h-${node.id()}-${otherNode.id()}`,
+              x1,
+              y1: midY,
+              x2,
+              y2: midY,
+              distance,
+              axis: 'h'
+            })
+          }
+        }
+
+        // Check vertical distances
+        const hOverlap = !(nodeBox.x + nodeBox.width < otherBox.x || nodeBox.x > otherBox.x + otherBox.width)
+        
+        if (hOverlap) {
+          let distance = 0
+          let y1 = 0
+          let y2 = 0
+
+          if (nodeBox.y + nodeBox.height < otherBox.y) {
+            // Node is above other
+            distance = otherBox.y - (nodeBox.y + nodeBox.height)
+            y1 = nodeBox.y + nodeBox.height
+            y2 = otherBox.y
+          } else if (otherBox.y + otherBox.height < nodeBox.y) {
+            // Node is below other
+            distance = nodeBox.y - (otherBox.y + otherBox.height)
+            y1 = otherBox.y + otherBox.height
+            y2 = nodeBox.y
+          }
+
+          if (distance > 0 && distance < DISTANCE_THRESHOLD_PX) {
+            const midX = Math.max(nodeBox.x, otherBox.x) + Math.min(nodeBox.x + nodeBox.width, otherBox.x + otherBox.width - Math.max(nodeBox.x, otherBox.x)) / 2
+            indicators.push({
+              id: `v-${node.id()}-${otherNode.id()}`,
+              x1: midX,
+              y1,
+              x2: midX,
+              y2,
+              distance,
+              axis: 'v'
+            })
+          }
+        }
+      }
+
+      setDistanceIndicators(indicators)
     },
     [snapToGridEnabled, snapToElements, snapToCanvas, gridSize, zoom, layers, cardW, cardH]
   )
@@ -391,6 +517,7 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
   const handleDragEnd = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {
       setSnapLines([])
+      setDistanceIndicators([])
       const id = e.target.id()
       if (id) {
         updateLayer(id, {
@@ -423,8 +550,103 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
     [updateLayer]
   )
 
+  // Helper functions for alt-hold measurements
+  const isBetween = (x: number, start: number, end: number): boolean => {
+    return (start <= x && x <= end) || (end <= x && x <= start)
+  }
+
+  const getAltMeasurements = useCallback(() => {
+    if (!altKeyHeld || selectedLayerIds.length !== 1 || !hoveredLayerId || selectedLayerIds[0] === hoveredLayerId) {
+      return []
+    }
+
+    const selectedLayer = layers.find(l => l.id === selectedLayerIds[0])
+    const hoveredLayer = layers.find(l => l.id === hoveredLayerId)
+    if (!selectedLayer || !hoveredLayer) return []
+
+    const s = {
+      x: selectedLayer.x * SCREEN_SCALE,
+      y: selectedLayer.y * SCREEN_SCALE,
+      width: selectedLayer.width * SCREEN_SCALE,
+      height: selectedLayer.height * SCREEN_SCALE,
+      right: (selectedLayer.x + selectedLayer.width) * SCREEN_SCALE,
+      bottom: (selectedLayer.y + selectedLayer.height) * SCREEN_SCALE
+    }
+
+    const h = {
+      x: hoveredLayer.x * SCREEN_SCALE,
+      y: hoveredLayer.y * SCREEN_SCALE,
+      width: hoveredLayer.width * SCREEN_SCALE,
+      height: hoveredLayer.height * SCREEN_SCALE,
+      right: (hoveredLayer.x + hoveredLayer.width) * SCREEN_SCALE,
+      bottom: (hoveredLayer.y + hoveredLayer.height) * SCREEN_SCALE
+    }
+
+    const measurements: Array<{
+      x1: number
+      y1: number
+      x2: number
+      y2: number
+      distance: number
+      supportLine?: { x1: number; y1: number; x2: number; y2: number }
+    }> = []
+
+    // Horizontal distance
+    const midY = s.y + s.height / 2
+    if (s.x > h.right) {
+      // Selected is to the right
+      measurements.push({
+        x1: h.right,
+        y1: midY,
+        x2: s.x,
+        y2: midY,
+        distance: (s.x - h.right) / SCREEN_SCALE,
+        supportLine: !isBetween(midY, h.y, h.bottom) ? { x1: h.right, y1: h.y, x2: h.right, y2: midY } : undefined
+      })
+    } else if (s.right < h.x) {
+      // Selected is to the left
+      measurements.push({
+        x1: s.right,
+        y1: midY,
+        x2: h.x,
+        y2: midY,
+        distance: (h.x - s.right) / SCREEN_SCALE,
+        supportLine: !isBetween(midY, h.y, h.bottom) ? { x1: h.x, y1: h.y, x2: h.x, y2: midY } : undefined
+      })
+    }
+
+    // Vertical distance
+    const midX = s.x + s.width / 2
+    if (s.y > h.bottom) {
+      // Selected is below
+      measurements.push({
+        x1: midX,
+        y1: h.bottom,
+        x2: midX,
+        y2: s.y,
+        distance: (s.y - h.bottom) / SCREEN_SCALE,
+        supportLine: !isBetween(midX, h.x, h.right) ? { x1: h.x, y1: h.bottom, x2: midX, y2: h.bottom } : undefined
+      })
+    } else if (s.bottom < h.y) {
+      // Selected is above
+      measurements.push({
+        x1: midX,
+        y1: s.bottom,
+        x2: midX,
+        y2: h.y,
+        distance: (h.y - s.bottom) / SCREEN_SCALE,
+        supportLine: !isBetween(midX, h.x, h.right) ? { x1: h.x, y1: h.y, x2: midX, y2: h.y } : undefined
+      })
+    }
+
+    return measurements
+  }, [altKeyHeld, selectedLayerIds, hoveredLayerId, layers])
+
   const renderLayer = (layer: LayerType): React.JSX.Element | null => {
     if (!layer.visible) return null
+
+    const currentCard = deck.cards.find((c) => c.id === selectedCardId) ?? null
+    const resolvedValue = resolveBindTo(layer, currentCard, deck.categories)
 
     const commonProps = {
       id: layer.id,
@@ -443,44 +665,89 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
       onMouseLeave: () => setHoveredLayerId(null)
     }
 
+    // Helper to get active fill/stroke/shadow
+    const activeFill = layer.fills?.find(f => !f.hidden)
+    const activeStroke = layer.strokes?.find(s => !s.hidden)
+    const activeShadow = layer.shadows?.find(s => !s.hidden)
+    const activeBlur = layer.blur && !layer.blur.hidden ? layer.blur : null
+
+    // Apply filters if blur is active
+    const filters = activeBlur ? [Konva.Filters.Blur] : undefined
+
     switch (layer.type) {
       case 'text': {
         const tl = layer as TextLayer
+        const displayText = resolvedValue !== undefined ? resolvedValue : tl.text
+        
+        // Apply stroke style
+        const strokeDash = activeStroke?.style === 'dashed' 
+          ? [8, 4] 
+          : activeStroke?.style === 'dotted' 
+          ? [2, 2] 
+          : undefined
+
         return (
           <Text
             {...commonProps}
-            text={tl.text}
+            text={displayText}
             fontSize={tl.fontSize * SCREEN_SCALE}
             fontFamily={tl.fontFamily}
             fontStyle={`${tl.fontWeight} ${tl.fontStyle}`}
-            fill={tl.fill}
+            fill={activeFill ? activeFill.color : tl.fill}
+            opacity={(activeFill ? activeFill.opacity : 1) * layer.opacity}
             align={tl.align}
             verticalAlign={tl.verticalAlign}
             lineHeight={tl.lineHeight}
             letterSpacing={tl.letterSpacing}
-            stroke={tl.stroke}
-            strokeWidth={tl.strokeWidth}
+            stroke={activeStroke ? activeStroke.color : tl.stroke}
+            strokeWidth={activeStroke ? activeStroke.width * SCREEN_SCALE : tl.strokeWidth}
+            dash={strokeDash}
+            shadowColor={activeShadow?.color}
+            shadowBlur={activeShadow ? activeShadow.blur * SCREEN_SCALE : undefined}
+            shadowOffsetX={activeShadow ? activeShadow.offsetX * SCREEN_SCALE : undefined}
+            shadowOffsetY={activeShadow ? activeShadow.offsetY * SCREEN_SCALE : undefined}
+            shadowOpacity={activeShadow?.opacity}
+            filters={filters}
+            blurRadius={activeBlur ? activeBlur.value : undefined}
           />
         )
       }
       case 'shape': {
         const sl = layer as ShapeLayer
+        
+        // Apply stroke style
+        const strokeDash = activeStroke?.style === 'dashed' 
+          ? [8, 4] 
+          : activeStroke?.style === 'dotted' 
+          ? [2, 2] 
+          : undefined
+
         return (
           <Rect
             {...commonProps}
-            fill={sl.fill}
-            stroke={sl.stroke}
-            strokeWidth={sl.strokeWidth}
+            fill={activeFill ? activeFill.color : sl.fill}
+            opacity={(activeFill ? activeFill.opacity : 1) * layer.opacity}
+            stroke={activeStroke ? activeStroke.color : sl.stroke}
+            strokeWidth={activeStroke ? activeStroke.width * SCREEN_SCALE : sl.strokeWidth}
+            dash={strokeDash}
             cornerRadius={(sl.cornerRadius ?? 0) * SCREEN_SCALE}
+            shadowColor={activeShadow?.color}
+            shadowBlur={activeShadow ? activeShadow.blur * SCREEN_SCALE : undefined}
+            shadowOffsetX={activeShadow ? activeShadow.offsetX * SCREEN_SCALE : undefined}
+            shadowOffsetY={activeShadow ? activeShadow.offsetY * SCREEN_SCALE : undefined}
+            shadowOpacity={activeShadow?.opacity}
+            filters={filters}
+            blurRadius={activeBlur ? activeBlur.value : undefined}
           />
         )
       }
       case 'image': {
-        return <ImageLayerNode layer={layer as ImageLayer} commonProps={commonProps} />
+        const imgLayer = layer as ImageLayer
+        const resolvedImageSrc = layer.bindTo === 'image' && resolvedValue ? resolvedValue : undefined
+        return <ImageLayerNode layer={imgLayer} commonProps={commonProps} resolvedSrc={resolvedImageSrc} />
       }
       case 'component': {
         const cl = layer as ComponentLayerType
-        const currentCard = deck.cards.find((c) => c.id === selectedCardId) ?? null
         return (
           <ComponentLayerRenderer
             key={layer.id}
@@ -896,6 +1163,19 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
           {/* User layers */}
           {layers.map(renderLayer)}
 
+          {/* Bound layer indicators */}
+          {layers.filter(l => l.bindTo && l.visible).map(layer => (
+            <Text
+              key={`bind-${layer.id}`}
+              x={layer.x * SCREEN_SCALE + layer.width * SCREEN_SCALE - 8}
+              y={layer.y * SCREEN_SCALE - 8}
+              text="🔗"
+              fontSize={10}
+              listening={false}
+              opacity={0.7}
+            />
+          ))}
+
           {/* Hover highlight */}
           {hoveredLayerId && !selectedLayerIds.includes(hoveredLayerId) && (() => {
             const hoveredLayer = layers.find((l) => l.id === hoveredLayerId)
@@ -947,6 +1227,142 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
                 shadowBlur={4 / zoom}
                 shadowOpacity={0.6}
               />
+            )
+          })}
+
+          {/* Distance indicators */}
+          {distanceIndicators.map((indicator) => {
+            const distanceMm = indicator.distance / SCREEN_SCALE
+            const distanceStr = distanceMm.toFixed(1) + ' mm'
+            const midX = (indicator.x1 + indicator.x2) / 2
+            const midY = (indicator.y1 + indicator.y2) / 2
+            const textWidth = distanceStr.length * 5 / zoom
+            const textHeight = 16 / zoom
+
+            return (
+              <React.Fragment key={indicator.id}>
+                {/* Line */}
+                <Line
+                  points={[indicator.x1, indicator.y1, indicator.x2, indicator.y2]}
+                  stroke="var(--accent)"
+                  strokeWidth={1 / zoom}
+                  listening={false}
+                />
+                {/* Tick marks */}
+                {indicator.axis === 'h' ? (
+                  <>
+                    <Line
+                      points={[indicator.x1, indicator.y1 - 3 / zoom, indicator.x1, indicator.y1 + 3 / zoom]}
+                      stroke="var(--accent)"
+                      strokeWidth={1 / zoom}
+                      listening={false}
+                    />
+                    <Line
+                      points={[indicator.x2, indicator.y2 - 3 / zoom, indicator.x2, indicator.y2 + 3 / zoom]}
+                      stroke="var(--accent)"
+                      strokeWidth={1 / zoom}
+                      listening={false}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Line
+                      points={[indicator.x1 - 3 / zoom, indicator.y1, indicator.x1 + 3 / zoom, indicator.y1]}
+                      stroke="var(--accent)"
+                      strokeWidth={1 / zoom}
+                      listening={false}
+                    />
+                    <Line
+                      points={[indicator.x2 - 3 / zoom, indicator.y2, indicator.x2 + 3 / zoom, indicator.y2]}
+                      stroke="var(--accent)"
+                      strokeWidth={1 / zoom}
+                      listening={false}
+                    />
+                  </>
+                )}
+                {/* Pill background */}
+                <Rect
+                  x={midX - textWidth / 2}
+                  y={midY - textHeight / 2}
+                  width={textWidth}
+                  height={textHeight}
+                  fill="var(--accent)"
+                  cornerRadius={3 / zoom}
+                  listening={false}
+                />
+                {/* Distance text */}
+                <Text
+                  x={midX}
+                  y={midY}
+                  text={distanceStr}
+                  fontSize={10 / zoom}
+                  fill="white"
+                  align="center"
+                  verticalAlign="middle"
+                  offsetX={textWidth / 2}
+                  offsetY={5 / zoom}
+                  listening={false}
+                />
+              </React.Fragment>
+            )
+          })}
+
+          {/* Alt-hold measurements */}
+          {getAltMeasurements().map((measurement, idx) => {
+            const distanceStr = measurement.distance.toFixed(1) + ' mm'
+            const midX = (measurement.x1 + measurement.x2) / 2
+            const midY = (measurement.y1 + measurement.y2) / 2
+            const textWidth = distanceStr.length * 5 / zoom
+            const textHeight = 16 / zoom
+
+            return (
+              <React.Fragment key={`alt-measure-${idx}`}>
+                {/* Support line (dashed) */}
+                {measurement.supportLine && (
+                  <Line
+                    points={[
+                      measurement.supportLine.x1,
+                      measurement.supportLine.y1,
+                      measurement.supportLine.x2,
+                      measurement.supportLine.y2
+                    ]}
+                    stroke="#ef4444"
+                    strokeWidth={1 / zoom}
+                    dash={[4, 4]}
+                    listening={false}
+                  />
+                )}
+                {/* Main measurement line */}
+                <Line
+                  points={[measurement.x1, measurement.y1, measurement.x2, measurement.y2]}
+                  stroke="#ef4444"
+                  strokeWidth={1.5 / zoom}
+                  listening={false}
+                />
+                {/* Pill background */}
+                <Rect
+                  x={midX - textWidth / 2}
+                  y={midY - textHeight / 2}
+                  width={textWidth}
+                  height={textHeight}
+                  fill="#ef4444"
+                  cornerRadius={3 / zoom}
+                  listening={false}
+                />
+                {/* Distance text */}
+                <Text
+                  x={midX}
+                  y={midY}
+                  text={distanceStr}
+                  fontSize={10 / zoom}
+                  fill="white"
+                  align="center"
+                  verticalAlign="middle"
+                  offsetX={textWidth / 2}
+                  offsetY={5 / zoom}
+                  listening={false}
+                />
+              </React.Fragment>
             )
           })}
 

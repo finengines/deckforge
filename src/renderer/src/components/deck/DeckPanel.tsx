@@ -75,62 +75,92 @@ export function DeckPanel(): React.JSX.Element {
             </button>
           </div>
         )}
-        {deck.cards.map((card, index) => (
-          <div
-            key={card.id}
-            className={`card-item ${selectedCardId === card.id ? 'active' : ''}${dragOverCardId === card.id ? ' drop-zone-active' : ''}`}
-            onClick={() => selectCard(card.id)}
-            onDragOver={(e) => handleCardDragOver(e, card.id)}
-            onDragLeave={handleCardDragLeave}
-            onDrop={(e) => handleCardDrop(e, card.id)}
-          >
-            <div className="card-item-thumb" style={{ position: 'relative' }}>
-              <span className="card-item-number">{index + 1}</span>
-              {card.image ? (
-                <img
-                  src={`file://${card.image}`}
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                />
-              ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'var(--text-muted)' }}>
-                  🃏
+        {deck.cards.map((card, index) => {
+          // Calculate completion status
+          const hasName = !!card.name && card.name !== 'New Card'
+          const hasImage = !!card.image
+          const requiredStatCount = deck.categories.length
+          const filledStatCount = Object.keys(card.stats).length
+          const allStatsFilled = filledStatCount === requiredStatCount && requiredStatCount > 0
+          
+          let completionIcon = '❌'
+          let completionTitle = 'Empty card'
+          if (hasName && hasImage && allStatsFilled) {
+            completionIcon = '✅'
+            completionTitle = 'Complete'
+          } else if (hasName || hasImage || filledStatCount > 0) {
+            completionIcon = '⚠️'
+            completionTitle = `Partial (${[hasName && 'name', hasImage && 'image', filledStatCount > 0 && `${filledStatCount}/${requiredStatCount} stats`].filter(Boolean).join(', ')})`
+          }
+
+          return (
+            <div
+              key={card.id}
+              className={`card-item ${selectedCardId === card.id ? 'active' : ''}${dragOverCardId === card.id ? ' drop-zone-active' : ''}`}
+              onClick={() => selectCard(card.id)}
+              onDragOver={(e) => handleCardDragOver(e, card.id)}
+              onDragLeave={handleCardDragLeave}
+              onDrop={(e) => handleCardDrop(e, card.id)}
+            >
+              <div className="card-item-thumb" style={{ position: 'relative' }}>
+                <span className="card-item-number">{index + 1}</span>
+                <span 
+                  style={{ 
+                    position: 'absolute', 
+                    top: 2, 
+                    right: 2, 
+                    fontSize: 10 
+                  }} 
+                  title={completionTitle}
+                >
+                  {completionIcon}
+                </span>
+                {card.image ? (
+                  <img
+                    src={`file://${card.image}`}
+                    alt=""
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'var(--text-muted)' }}>
+                    🃏
+                  </div>
+                )}
+              </div>
+              <div className="card-item-info">
+                <div className="card-item-name">{card.name}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                  {filledStatCount}/{requiredStatCount} stats
                 </div>
-              )}
-            </div>
-            <div className="card-item-info">
-              <div className="card-item-name">{card.name}</div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                {Object.keys(card.stats).length} stats
+              </div>
+              <div style={{ display: 'flex', gap: 2 }}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: 2, fontSize: 10 }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    duplicateCard(card.id)
+                  }}
+                  title="Duplicate"
+                >
+                  📋
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: 2, fontSize: 10 }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeCard(card.id)
+                  }}
+                  title="Delete"
+                >
+                  🗑
+                </button>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 2 }}>
-              <button
-                className="btn btn-ghost btn-sm"
-                style={{ padding: 2, fontSize: 10 }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  duplicateCard(card.id)
-                }}
-                title="Duplicate"
-              >
-                📋
-              </button>
-              <button
-                className="btn btn-ghost btn-sm"
-                style={{ padding: 2, fontSize: 10 }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  removeCard(card.id)
-                }}
-                title="Delete"
-              >
-                🗑
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

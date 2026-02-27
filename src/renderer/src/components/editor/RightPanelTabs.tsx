@@ -26,7 +26,7 @@ export function RightPanelTabs(): React.JSX.Element {
   }, [selectedLayerIds])
 
   return (
-    <div className="panel" style={{ width: 280, display: 'flex', flexDirection: 'column' }}>
+    <div className="panel" style={{ width: 280, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
       {/* Tab bar */}
       <div style={{
         display: 'flex',
@@ -74,12 +74,11 @@ export function RightPanelTabs(): React.JSX.Element {
 
       {/* Tab content */}
       <div style={{
-        flex: 1,
+        flex: '1 1 0',
+        minHeight: 0,
         overflowY: 'auto',
         overflowX: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        WebkitOverflowScrolling: 'touch'
+        WebkitOverflowScrolling: 'touch' as never
       }}>
         {activeTab === 'layers' && <LayerPanel />}
         {activeTab === 'properties' && <PropertiesPanel />}

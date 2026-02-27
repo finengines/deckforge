@@ -78,6 +78,7 @@ body {
   flex-direction: column;
   overflow: hidden;
   -webkit-app-region: no-drag;
+  min-height: 0; /* allow flex children to scroll */
 }
 
 .panel:last-child {
