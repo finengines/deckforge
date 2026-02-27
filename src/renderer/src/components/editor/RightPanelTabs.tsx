@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { LayerPanel } from './LayerPanel'
 import { PropertiesPanel } from './PropertiesPanel'
 import ComponentLibrary from '../library/ComponentLibrary'
@@ -25,23 +25,64 @@ export function RightPanelTabs(): React.JSX.Element {
     }
   }, [selectedLayerIds])
 
+  const currentIndex = tabs.findIndex((t) => t.id === activeTab)
+
+  const goNext = useCallback(() => {
+    const next = (currentIndex + 1) % tabs.length
+    setActiveTab(tabs[next].id)
+  }, [currentIndex])
+
+  const goPrev = useCallback(() => {
+    const prev = (currentIndex - 1 + tabs.length) % tabs.length
+    setActiveTab(tabs[prev].id)
+  }, [currentIndex])
+
   return (
-    <div className="panel" style={{ width: 280, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-      {/* Tab bar */}
+    <div style={{
+      width: 280,
+      display: 'flex',
+      flexDirection: 'column',
+      background: 'var(--bg-secondary)',
+      borderLeft: '1px solid var(--border)',
+      height: '100%',
+      minHeight: 0,
+      overflow: 'hidden'
+    }}>
+      {/* Tab bar with nav arrows */}
       <div style={{
         display: 'flex',
+        alignItems: 'center',
         borderBottom: '1px solid var(--border)',
         background: 'var(--bg-tertiary)',
         flexShrink: 0
       }}>
+        {/* Previous arrow */}
+        <button
+          onClick={goPrev}
+          style={{
+            padding: '8px 6px',
+            fontSize: 12,
+            color: 'var(--text-muted)',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            flexShrink: 0,
+            lineHeight: 1
+          }}
+          title="Previous tab"
+        >
+          ◀
+        </button>
+
+        {/* Tab buttons */}
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             style={{
               flex: 1,
-              padding: '8px 4px',
-              fontSize: 11,
+              padding: '8px 2px',
+              fontSize: 10,
               fontWeight: activeTab === tab.id ? 600 : 400,
               color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
               background: activeTab === tab.id ? 'var(--bg-secondary)' : 'transparent',
@@ -52,29 +93,38 @@ export function RightPanelTabs(): React.JSX.Element {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 4
+              gap: 3,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden'
             }}
           >
             <span>{tab.icon}</span>
             <span>{tab.label}</span>
-            {tab.id === 'layers' && (
-              <span style={{
-                fontSize: 9,
-                background: 'var(--bg-tertiary)',
-                padding: '1px 4px',
-                borderRadius: 8,
-                color: 'var(--text-muted)'
-              }}>
-                {useEditorStore.getState().currentDeck?.frontTemplate.frontLayers.length ?? 0}
-              </span>
-            )}
           </button>
         ))}
+
+        {/* Next arrow */}
+        <button
+          onClick={goNext}
+          style={{
+            padding: '8px 6px',
+            fontSize: 12,
+            color: 'var(--text-muted)',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            flexShrink: 0,
+            lineHeight: 1
+          }}
+          title="Next tab"
+        >
+          ▶
+        </button>
       </div>
 
-      {/* Tab content */}
+      {/* Tab content — this is the scrollable area */}
       <div style={{
-        flex: '1 1 0',
+        flex: '1 1 0px',
         minHeight: 0,
         overflowY: 'auto',
         overflowX: 'hidden',
@@ -83,20 +133,14 @@ export function RightPanelTabs(): React.JSX.Element {
         {activeTab === 'layers' && <LayerPanel />}
         {activeTab === 'properties' && <PropertiesPanel />}
         {activeTab === 'components' && (
-          <div style={{ flex: 1 }}>
-            <ComponentLibrary
-              onAddLayers={(layers) => {
-                const store = useEditorStore.getState()
-                layers.forEach((layer) => store.addLayer(layer))
-              }}
-            />
-          </div>
+          <ComponentLibrary
+            onAddLayers={(layers) => {
+              const store = useEditorStore.getState()
+              layers.forEach((layer) => store.addLayer(layer))
+            }}
+          />
         )}
-        {activeTab === 'assets' && (
-          <div style={{ flex: 1 }}>
-            <AssetBrowser compact />
-          </div>
-        )}
+        {activeTab === 'assets' && <AssetBrowser compact />}
       </div>
     </div>
   )

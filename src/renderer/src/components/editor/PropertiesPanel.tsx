@@ -24,7 +24,7 @@ export const PropertiesPanel = React.memo(function PropertiesPanel(): React.JSX.
   const lastSelectedLayerId = useEditorStore((s) => s.lastSelectedLayerId)
   const updateLayer = useEditorStore((s) => s.updateLayer)
 
-  if (!deck) return <div className="panel" />
+  if (!deck) return <div />
 
   const template = editingSide === 'front' ? deck.frontTemplate : deck.backTemplate
   const allLayers = editingSide === 'back' && template.backLayers !== null
@@ -51,7 +51,7 @@ export const PropertiesPanel = React.memo(function PropertiesPanel(): React.JSX.
 
   if (!selectedLayer) {
     return (
-      <div className="panel">
+      <div>
         <div className="panel-header">Properties</div>
         <div className="panel-content">
           <div style={{ color: 'var(--text-muted)', fontSize: 11, padding: 8 }}>
@@ -67,7 +67,7 @@ export const PropertiesPanel = React.memo(function PropertiesPanel(): React.JSX.
   }
 
   return (
-    <div className="panel">
+    <div>
       <div className="panel-header">Properties</div>
       <div className="panel-content">
         <PropSection title="General">

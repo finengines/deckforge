@@ -5,6 +5,7 @@ import { useEditorStore } from '../../stores/editorStore'
 import type { AIProvider } from '../../types'
 import { builtInThemes, applyTheme, getThemeById } from '../../lib/themes'
 import { generateText } from '../../lib/ai'
+import { resetTutorial } from '../TutorialOverlay'
 
 const FONT_OPTIONS = [
   'Inter, sans-serif',
@@ -640,11 +641,18 @@ export function SettingsView(): React.JSX.Element {
               <div><strong>Cards:</strong> {deck?.cards.length ?? 0}</div>
               <div><strong>Categories:</strong> {deck?.categories.length ?? 0}</div>
               <div><strong>Database:</strong> SQLite (local)</div>
-              <div style={{ marginTop: 8 }}>
+              <div style={{ marginTop: 8, display: 'flex', gap: 12, alignItems: 'center' }}>
                 <a href="https://github.com/finengines/deckforge" target="_blank" rel="noopener noreferrer"
                   style={{ color: 'var(--accent)', textDecoration: 'none' }}>
                   🔗 GitHub Repository
                 </a>
+                <button
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => { resetTutorial(); alert('Tutorial will show on next deck open.') }}
+                  style={{ fontSize: 11 }}
+                >
+                  📖 Restart Tutorial
+                </button>
               </div>
             </div>
           </div>

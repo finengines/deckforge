@@ -234,7 +234,7 @@ export const LayerPanel = React.memo(function LayerPanel(): React.JSX.Element {
   const ungroupLayer = useEditorStore((s) => s.ungroupLayer)
   const addLayer = useEditorStore((s) => s.addLayer)
 
-  if (!deck) return <div className="panel" />
+  if (!deck) return <div />
 
   const template = editingSide === 'front' ? deck.frontTemplate : deck.backTemplate
   const srcLayers = editingSide === 'back' && template.backLayers !== null
@@ -307,7 +307,7 @@ export const LayerPanel = React.memo(function LayerPanel(): React.JSX.Element {
     srcLayers.find((l) => l.id === selectedLayerIds[0])?.type === 'group'
 
   return (
-    <div className="panel">
+    <div>
       <div className="panel-header">
         <span>Layers</span>
         <div style={{ display: 'flex', gap: 4 }}>

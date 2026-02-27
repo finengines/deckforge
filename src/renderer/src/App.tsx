@@ -15,6 +15,7 @@ import { KeyboardShortcuts } from './components/KeyboardShortcuts'
 import { AboutDialog } from './components/AboutDialog'
 import { StatusBar } from './components/StatusBar'
 import { RightPanelTabs } from './components/editor/RightPanelTabs'
+import { TutorialOverlay } from './components/TutorialOverlay'
 import './assets/app.css'
 
 function App(): React.JSX.Element {
@@ -51,6 +52,7 @@ function App(): React.JSX.Element {
       <ToastContainer />
       <KeyboardShortcuts />
       <AboutDialog />
+      <TutorialOverlay />
     </div>
   )
 }

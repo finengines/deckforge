@@ -107,7 +107,14 @@ export function Toolbar({ saveStatus = 'idle' }: ToolbarProps): React.JSX.Elemen
 
           {/* Base Template label + Card preview selector */}
           <div className="toolbar-group" style={{ alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>
+            <span style={{
+              fontSize: 10,
+              color: 'var(--accent)',
+              fontWeight: 600,
+              background: 'var(--accent-muted)',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-sm)'
+            }}>
               📐 Base Template
             </span>
             {deck && deck.cards.length > 0 && (
