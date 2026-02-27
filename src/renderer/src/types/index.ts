@@ -335,4 +335,6 @@ export interface EditorState {
   showGuides: boolean
   /** Show layout guides overlay */
   showLayoutGuides: boolean
+  /** Hovered layer id */
+  hoveredLayerId: string | null
 }

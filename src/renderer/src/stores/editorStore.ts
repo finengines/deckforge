@@ -119,6 +119,10 @@ interface EditorStore extends EditorState {
   showGrid: boolean
   setShowLayoutGuides: (val: boolean) => void
   toggleLayoutGuides: () => void
+
+  // --- Hover ---
+  hoveredLayerId: string | null
+  setHoveredLayerId: (id: string | null) => void
 }
 
 export const useEditorStore = create<EditorStore>()(
@@ -142,6 +146,7 @@ export const useEditorStore = create<EditorStore>()(
       showGuides: true,
       showGrid: true,
       showLayoutGuides: false,
+      hoveredLayerId: null,
 
       // --- View ---
       setView: (view) =>
@@ -833,6 +838,11 @@ export const useEditorStore = create<EditorStore>()(
       toggleLayoutGuides: () =>
         set((s) => {
           s.showLayoutGuides = !s.showLayoutGuides
+        }),
+
+      setHoveredLayerId: (id) =>
+        set((s) => {
+          s.hoveredLayerId = id
         })
     })),
     { limit: 100 }
