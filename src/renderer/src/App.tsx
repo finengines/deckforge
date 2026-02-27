@@ -23,8 +23,39 @@ import './assets/app.css'
 function App(): React.JSX.Element {
   const view = useEditorStore((s) => s.view)
   const currentDeck = useEditorStore((s) => s.currentDeck)
-  const { saveStatus } = useDeckPersistence()
+  const { saveStatus, saveDeck, loadDeck } = useDeckPersistence()
   useKeyboardShortcuts()
+
+  // Menu actions (native macOS menu)
+  React.useEffect(() => {
+    const api = (window as any).api
+    if (!api?.on) return
+
+    const unsubs: Array<() => void> = []
+
+    unsubs.push(api.on('menu:save', () => saveDeck()))
+    unsubs.push(api.on('menu:save-as', async () => {
+      const deck = useEditorStore.getState().currentDeck
+      if (!deck) return
+      const json = JSON.stringify(deck, null, 2)
+      await api.deckFile.save(json, `${deck.name || 'Untitled Deck'}.deckforge`)
+    }))
+    unsubs.push(api.on('menu:open-file', async () => {
+      const result = await api.deckFile.open()
+      if (result?.success && result.data) {
+        try {
+          const deck = JSON.parse(result.data)
+          useEditorStore.getState().loadDeck(deck)
+        } catch (err) {
+          alert('Failed to open deck file: invalid JSON')
+        }
+      }
+    }))
+    unsubs.push(api.on('menu:open-recent', (id: string) => loadDeck(id)))
+    unsubs.push(api.on('menu:new-deck', () => useEditorStore.getState().closeDeck()))
+
+    return () => { unsubs.forEach((u) => u()) }
+  }, [saveDeck, loadDeck])
 
   if (!currentDeck) {
     return (

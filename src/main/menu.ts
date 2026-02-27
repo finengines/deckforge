@@ -1,4 +1,5 @@
 import { Menu, BrowserWindow, app } from 'electron'
+import { listDecks } from './database'
 
 export function createMenu(): void {
   const isMac = process.platform === 'darwin'
@@ -31,9 +32,24 @@ export function createMenu(): void {
           click: (): void => sendToRenderer('menu:new-deck')
         },
         {
+          label: 'Open...',
+          accelerator: 'CmdOrCtrl+O',
+          click: (): void => sendToRenderer('menu:open-file')
+        },
+        {
+          label: 'Open Recent',
+          submenu: buildRecentMenu()
+        },
+        { type: 'separator' },
+        {
           label: 'Save',
           accelerator: 'CmdOrCtrl+S',
           click: (): void => sendToRenderer('menu:save')
+        },
+        {
+          label: 'Save As...',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: (): void => sendToRenderer('menu:save-as')
         },
         { type: 'separator' },
         {
@@ -161,9 +177,26 @@ export function createMenu(): void {
   Menu.setApplicationMenu(menu)
 }
 
-function sendToRenderer(channel: string): void {
+function buildRecentMenu(): Electron.MenuItemConstructorOptions[] {
+  try {
+    const recents = listDecks().slice(0, 10)
+    if (recents.length === 0) {
+      return [{ label: 'No recent decks', enabled: false }]
+    }
+
+    return recents.map((d) => ({
+      label: d.name || 'Untitled Deck',
+      sublabel: `${d.cardCount} cards`,
+      click: (): void => sendToRenderer('menu:open-recent', d.id)
+    }))
+  } catch (err) {
+    return [{ label: 'No recent decks', enabled: false }]
+  }
+}
+
+function sendToRenderer(channel: string, ...args: any[]): void {
   const win = BrowserWindow.getFocusedWindow()
   if (win) {
-    win.webContents.send(channel)
+    win.webContents.send(channel, ...args)
   }
 }

@@ -1171,21 +1171,23 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
             listening={false}
           />
 
-          {/* User layers */}
-          {layers.map(renderLayer)}
+          {/* User layers (clipped to card bounds) */}
+          <Group clipX={0} clipY={0} clipWidth={cardW} clipHeight={cardH}>
+            {layers.map(renderLayer)}
 
-          {/* Bound layer indicators */}
-          {layers.filter(l => l.bindTo && l.visible).map(layer => (
-            <Text
-              key={`bind-${layer.id}`}
-              x={layer.x * SCREEN_SCALE + layer.width * SCREEN_SCALE - 8}
-              y={layer.y * SCREEN_SCALE - 8}
-              text="🔗"
-              fontSize={10}
-              listening={false}
-              opacity={0.7}
-            />
-          ))}
+            {/* Bound layer indicators */}
+            {layers.filter(l => l.bindTo && l.visible).map(layer => (
+              <Text
+                key={`bind-${layer.id}`}
+                x={layer.x * SCREEN_SCALE + layer.width * SCREEN_SCALE - 8}
+                y={layer.y * SCREEN_SCALE - 8}
+                text="🔗"
+                fontSize={10}
+                listening={false}
+                opacity={0.7}
+              />
+            ))}
+          </Group>
 
           {/* Hover highlight */}
           {hoveredLayerId && !selectedLayerIds.includes(hoveredLayerId) && (() => {

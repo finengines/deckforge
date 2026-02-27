@@ -108,30 +108,43 @@ export function WelcomeScreen(): React.JSX.Element {
             {recentDecks.map((deck) => (
               <div
                 key={deck.id}
-                className="card-item"
-                onClick={() => handleOpenDeck(deck.id)}
-                style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius)',
-                  padding: '10px 14px'
-                }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
               >
-                <div style={{ fontSize: 20 }}>🃏</div>
-                <div className="card-item-info">
-                  <div className="card-item-name" style={{ fontSize: 14 }}>
-                    {deck.name}
+                <button
+                  type="button"
+                  className="card-item"
+                  onClick={() => handleOpenDeck(deck.id)}
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    padding: '10px 14px',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    flex: 1
+                  }}
+                >
+                  <div style={{ fontSize: 20 }}>🃏</div>
+                  <div className="card-item-info" style={{ flex: 1 }}>
+                    <div className="card-item-name" style={{ fontSize: 14 }}>
+                      {deck.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {deck.cardCount} cards • {formatDate(deck.updatedAt)}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    {deck.cardCount} cards • {formatDate(deck.updatedAt)}
-                  </div>
-                </div>
+                </button>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => handleOpenDeck(deck.id)}
+                >
+                  Open
+                </button>
                 <button
                   className="btn btn-ghost btn-sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDeleteDeck(deck.id, deck.name)
-                  }}
+                  onClick={() => handleDeleteDeck(deck.id, deck.name)}
                   style={{ opacity: 0.4 }}
                 >
                   🗑

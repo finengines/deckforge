@@ -45,6 +45,13 @@ const api = {
     save: (jsonString: string, defaultName: string) =>
       ipcRenderer.invoke('deck:save-file', jsonString, defaultName),
     open: () => ipcRenderer.invoke('deck:open-file')
+  },
+
+  // IPC event bridge (menu, etc.)
+  on: (channel: string, listener: (...args: any[]) => void) => {
+    const wrapped = (_event: any, ...args: any[]) => listener(...args)
+    ipcRenderer.on(channel, wrapped)
+    return () => ipcRenderer.removeListener(channel, wrapped)
   }
 }
 
