@@ -5,7 +5,8 @@ import { useEditorStore } from '../../stores/editorStore'
 import {
   generateCardDescription,
   generateFunFact,
-  generateCardStats
+  generateCardStats,
+  describeCardFromImage
 } from '../../lib/ai'
 
 interface BatchOptions {
@@ -65,21 +66,67 @@ export function BatchGenerate({ onClose }: { onClose: () => void }): React.JSX.E
         const aiFlags: Record<string, boolean> = { ...card.aiGenerated }
         const preview: CardResult['preview'] = {}
 
-        if (opts.descriptions && textConfig) {
-          updates.description = await generateCardDescription(textConfig, card.name, deck.description)
-          aiFlags.description = true
-          preview.description = updates.description
+        // If card has an image, use vision-based generation for richer context
+        const hasImage = !!card.image
+        const visionConfig = providers.find((p) => p.id === defaults.vision) ?? textConfig
+
+        if (hasImage && visionConfig && (opts.descriptions || opts.stats)) {
+          // Vision-based: analyze image + generate description, stats, fun fact in one call
+          try {
+            const b64 = card.image!.startsWith('data:')
+              ? card.image!.split(',')[1]
+              : card.image!
+            const cats = deck.categories.map((c) => ({ name: c.name, min: c.min, max: c.max }))
+            const result = await describeCardFromImage(visionConfig, b64, cats)
+
+            if (opts.descriptions && result.description) {
+              updates.description = result.description
+              aiFlags.description = true
+              preview.description = result.description
+            }
+            if (opts.funFacts && result.funFact) {
+              updates.funFact = result.funFact
+              aiFlags.funFact = true
+              preview.funFact = result.funFact
+            }
+            if (opts.stats && result.stats && Object.keys(result.stats).length > 0) {
+              const mapped: Record<string, number> = {}
+              for (const cat of deck.categories) {
+                if (result.stats[cat.name] !== undefined) {
+                  mapped[cat.id] = Math.min(cat.max, Math.max(cat.min, result.stats[cat.name]))
+                }
+              }
+              updates.stats = { ...card.stats, ...mapped }
+              aiFlags.stats = true
+            }
+          } catch {
+            // Fallback to text-based if vision fails
+            if (opts.descriptions && textConfig) {
+              updates.description = await generateCardDescription(textConfig, card.name, deck.description)
+              aiFlags.description = true
+              preview.description = updates.description
+            }
+          }
+        } else {
+          // Text-based generation (no image available)
+          if (opts.descriptions && textConfig) {
+            updates.description = await generateCardDescription(textConfig, card.name, deck.description)
+            aiFlags.description = true
+            preview.description = updates.description
+          }
         }
         if (cancelRef.current) break
 
-        if (opts.funFacts && textConfig) {
+        // Generate fun facts separately if not already done via vision
+        if (opts.funFacts && textConfig && !updates.funFact) {
           updates.funFact = await generateFunFact(textConfig, card.name)
           aiFlags.funFact = true
           preview.funFact = updates.funFact
         }
         if (cancelRef.current) break
 
-        if (opts.stats && statsConfig && deck.categories.length > 0) {
+        // Generate stats separately if not already done via vision
+        if (opts.stats && statsConfig && deck.categories.length > 0 && !updates.stats) {
           const cats = deck.categories.map((c) => ({ name: c.name, min: c.min, max: c.max }))
           const raw = await generateCardStats(statsConfig, card.name, cats, deck.description)
           const mapped: Record<string, number> = {}
