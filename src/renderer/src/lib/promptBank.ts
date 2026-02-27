@@ -40,9 +40,45 @@ export const PROMPT_BANK: PromptCategory[] = [
     description: 'Full card background designs with borders and framing',
     templates: [
       {
+        id: 'bg-plain-gradient',
+        name: '🖼 BG Only: Gradient',
+        description: 'Simple gradient background — no borders, frames, or stat areas',
+        prompt: `Simple smooth gradient background, [THEME_COLOR] tones, subtle color transition, NO borders, NO frames, NO text areas, NO stat boxes, NO decorative elements, just a clean background fill, portrait orientation 63x88mm ratio${SUFFIX}`,
+        customizable: ['THEME_COLOR'],
+        dimensions: { width: 630, height: 880 },
+        componentType: 'background'
+      },
+      {
+        id: 'bg-plain-texture',
+        name: '🖼 BG Only: Textured',
+        description: 'Textured background only — leather, metal, paper, etc.',
+        prompt: `Textured background surface, [THEME_COLOR] tinted, subtle material texture (leather, brushed metal, or aged paper style), NO borders, NO frames, NO text areas, NO stat boxes, NO decorative elements, just the texture filling the entire area, portrait orientation 63x88mm ratio${SUFFIX}`,
+        customizable: ['THEME_COLOR'],
+        dimensions: { width: 630, height: 880 },
+        componentType: 'background'
+      },
+      {
+        id: 'bg-plain-pattern',
+        name: '🖼 BG Only: Pattern',
+        description: 'Repeating pattern background — no UI elements',
+        prompt: `Subtle repeating pattern background, [THEME_COLOR] tones, geometric or organic pattern, NO borders, NO frames, NO text areas, NO stat boxes, NO decorative elements, just a clean pattern fill, portrait orientation 63x88mm ratio${SUFFIX}`,
+        customizable: ['THEME_COLOR'],
+        dimensions: { width: 630, height: 880 },
+        componentType: 'background'
+      },
+      {
+        id: 'bg-plain-abstract',
+        name: '🖼 BG Only: Abstract',
+        description: 'Abstract artistic background — no frames or UI',
+        prompt: `Abstract artistic background, [THEME_COLOR] color palette, flowing shapes and light effects, NO borders, NO frames, NO text areas, NO stat boxes, NO decorative elements, just abstract art filling the entire area, portrait orientation 63x88mm ratio${SUFFIX}`,
+        customizable: ['THEME_COLOR'],
+        dimensions: { width: 630, height: 880 },
+        componentType: 'background'
+      },
+      {
         id: 'bg-fantasy',
-        name: 'Fantasy Card Frame',
-        description: 'Ornate fantasy-themed card with decorative border',
+        name: '🏰 Frame: Fantasy',
+        description: 'Ornate fantasy-themed card with decorative border + areas',
         prompt: `Top Trumps style card frame, ornate fantasy medieval border, gold filigree corners, dark [THEME_COLOR] gradient center area, decorative header banner area at top, stat rows area at bottom, portrait orientation 63x88mm ratio${SUFFIX}`,
         customizable: ['THEME_COLOR'],
         dimensions: { width: 630, height: 880 },
@@ -50,7 +86,7 @@ export const PROMPT_BANK: PromptCategory[] = [
       },
       {
         id: 'bg-scifi',
-        name: 'Sci-Fi Card Frame',
+        name: '🚀 Frame: Sci-Fi',
         description: 'Futuristic HUD-style card frame',
         prompt: `Top Trumps style card frame, futuristic sci-fi HUD interface design, glowing [THEME_COLOR] neon edges, tech circuit patterns, holographic overlay style, dark metallic background, portrait 63x88mm ratio${SUFFIX}`,
         customizable: ['THEME_COLOR'],
@@ -59,7 +95,7 @@ export const PROMPT_BANK: PromptCategory[] = [
       },
       {
         id: 'bg-sports',
-        name: 'Sports Card Frame',
+        name: '⚡ Frame: Sports',
         description: 'Dynamic sports-themed card with action lines',
         prompt: `Top Trumps style sports trading card frame, dynamic diagonal lines, bold [THEME_COLOR] and black color scheme, stadium spotlight effects, energetic design, portrait 63x88mm ratio${SUFFIX}`,
         customizable: ['THEME_COLOR'],
@@ -68,7 +104,7 @@ export const PROMPT_BANK: PromptCategory[] = [
       },
       {
         id: 'bg-nature',
-        name: 'Nature Card Frame',
+        name: '🌿 Frame: Nature',
         description: 'Organic nature-themed card with botanical elements',
         prompt: `Top Trumps style card frame, botanical leaf and vine border decorations, earthy [THEME_COLOR] tones, watercolor texture, nature wildlife theme, organic shapes, portrait 63x88mm ratio${SUFFIX}`,
         customizable: ['THEME_COLOR'],
@@ -77,7 +113,7 @@ export const PROMPT_BANK: PromptCategory[] = [
       },
       {
         id: 'bg-retro',
-        name: 'Retro / Vintage Card',
+        name: '📻 Frame: Retro',
         description: 'Classic vintage trading card style',
         prompt: `Top Trumps style vintage retro trading card frame, aged paper texture, classic 1980s card game border, [THEME_COLOR] and cream colors, nostalgic design, portrait 63x88mm ratio${SUFFIX}`,
         customizable: ['THEME_COLOR'],
@@ -86,7 +122,7 @@ export const PROMPT_BANK: PromptCategory[] = [
       },
       {
         id: 'bg-comic',
-        name: 'Comic Book Card',
+        name: '💥 Frame: Comic',
         description: 'Bold comic book art style card',
         prompt: `Top Trumps style comic book trading card frame, halftone dots, bold black outlines, pow/zap star burst elements, [THEME_COLOR] and yellow, pop art style, portrait 63x88mm ratio${SUFFIX}`,
         customizable: ['THEME_COLOR'],
@@ -95,7 +131,7 @@ export const PROMPT_BANK: PromptCategory[] = [
       },
       {
         id: 'bg-minimalist',
-        name: 'Modern Minimalist',
+        name: '◻️ Frame: Minimalist',
         description: 'Clean modern card with subtle accents',
         prompt: `Top Trumps style modern minimalist card frame, clean lines, subtle [THEME_COLOR] accent, large white space, geometric elements, premium luxury feel, portrait 63x88mm ratio${SUFFIX}`,
         customizable: ['THEME_COLOR'],
@@ -366,7 +402,7 @@ export function getAllTemplates(): PromptTemplate[] {
  * technical specs needed for DeckForge compatibility.
  */
 export interface CustomPromptConfig {
-  type: 'card-background' | 'stat-bar' | 'title-banner' | 'image-frame' | 'badge' | 'decoration' | 'texture'
+  type: 'card-background' | 'background-only' | 'stat-bar' | 'title-banner' | 'image-frame' | 'badge' | 'decoration' | 'texture'
   userPrompt: string
   themeColor: string
 }
@@ -377,9 +413,14 @@ const TYPE_SPECS: Record<CustomPromptConfig['type'], {
   extraSpecs: string
 }> = {
   'card-background': {
-    label: 'Full Card Background',
+    label: 'Full Card Frame (with stat/title areas)',
     dimensions: 'portrait orientation, 63x88mm ratio (630x880px recommended)',
     extraSpecs: 'Leave clear areas for: title text at top, large image area in upper half, stat rows in lower half, description text area'
+  },
+  'background-only': {
+    label: 'Background Only (no frames/borders/areas)',
+    dimensions: 'portrait orientation, 63x88mm ratio (630x880px recommended)',
+    extraSpecs: 'IMPORTANT: NO borders, NO frames, NO text areas, NO stat boxes, NO decorative UI elements. Just a clean background image that fills the entire card. Components and text will be placed on top digitally'
   },
   'stat-bar': {
     label: 'Stat Bar Element',
@@ -455,6 +496,7 @@ export function buildCustomPrompt(config: CustomPromptConfig): string {
 export function getRecommendedDimensions(type: CustomPromptConfig['type']): { width: number; height: number } {
   const dims: Record<CustomPromptConfig['type'], { width: number; height: number }> = {
     'card-background': { width: 630, height: 880 },
+    'background-only': { width: 630, height: 880 },
     'stat-bar': { width: 540, height: 80 },
     'title-banner': { width: 540, height: 120 },
     'image-frame': { width: 500, height: 350 },

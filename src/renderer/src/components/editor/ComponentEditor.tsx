@@ -976,7 +976,8 @@ function PromptBankDialog({ onClose }: { onClose: () => void }): React.JSX.Eleme
                 <div className="form-group" style={{ marginBottom: 12 }}>
                   <label className="input-label">Component Type</label>
                   <select className="input" value={customType} onChange={(e) => setCustomType(e.target.value as CustomPromptConfig['type'])}>
-                    <option value="card-background">Full Card Background</option>
+                    <option value="card-background">Full Card Frame (with borders/areas)</option>
+                    <option value="background-only">Background Only (clean, no UI elements)</option>
                     <option value="stat-bar">Stat Bar</option>
                     <option value="title-banner">Title Banner</option>
                     <option value="image-frame">Image Frame</option>
