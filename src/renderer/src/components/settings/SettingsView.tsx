@@ -11,7 +11,21 @@ const FONT_OPTIONS = [
   "'Fira Code', monospace",
   'system-ui, sans-serif',
   'Georgia, serif',
-  "'Courier New', monospace"
+  "'Courier New', monospace",
+  'Arial, Helvetica, sans-serif',
+  "'Trebuchet MS', sans-serif",
+  'Verdana, sans-serif',
+  'Impact, sans-serif',
+  "'Comic Sans MS', cursive",
+  "'Palatino Linotype', serif",
+  "'Times New Roman', serif",
+  "'Lucida Console', monospace",
+  'Tahoma, sans-serif',
+  "'Segoe UI', sans-serif",
+  "'Gill Sans', sans-serif",
+  "'Futura', sans-serif",
+  "'Garamond', serif",
+  "'Bookman Old Style', serif"
 ]
 
 export function SettingsView(): React.JSX.Element {

@@ -205,11 +205,22 @@ function TextProperties({
       </div>
       <div className="form-group">
         <label className="input-label">Font</label>
-        <input
+        <select
           className="input"
           value={layer.fontFamily}
           onChange={(e) => onUpdate({ fontFamily: e.target.value })}
-        />
+        >
+          {[
+            'Inter', 'Roboto', 'Playfair Display', 'Fira Code', 'system-ui',
+            'Georgia', 'Courier New', 'Arial', 'Trebuchet MS', 'Verdana',
+            'Impact', 'Comic Sans MS', 'Palatino Linotype', 'Times New Roman',
+            'Lucida Console', 'Tahoma', 'Segoe UI', 'Gill Sans', 'Futura',
+            'Garamond', 'Bookman Old Style'
+          ].map((f) => (
+            <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+          ))}
+          <option value={layer.fontFamily}>{layer.fontFamily} (current)</option>
+        </select>
       </div>
       <div className="form-group">
         <div className="form-row">
