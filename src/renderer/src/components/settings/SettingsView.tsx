@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useAIStore } from '../../stores/aiStore'
+import { useAssetStore } from '../../stores/assetStore'
 import { useEditorStore } from '../../stores/editorStore'
 import type { AIProvider } from '../../types'
 import { builtInThemes, applyTheme, getThemeById } from '../../lib/themes'
@@ -35,6 +36,7 @@ export function SettingsView(): React.JSX.Element {
   const updateDeckName = useEditorStore((s) => s.updateDeckName)
   const updateDeckDescription = useEditorStore((s) => s.updateDeckDescription)
   const aiStore = useAIStore()
+  const assetStore = useAssetStore()
   const [activeThemeId, setActiveThemeId] = useState('dark')
   const [useGradient, setUseGradient] = useState(false)
 
@@ -385,9 +387,92 @@ export function SettingsView(): React.JSX.Element {
             </button>
           </div>
 
+          {/* Asset Libraries */}
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', padding: 16, marginTop: 16 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>🖼️ Asset Libraries</h3>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
+              Configure API keys for premium asset providers. Free providers (Iconify, SVG Repo, unDraw) work without keys.
+            </p>
+
+            {/* Unsplash */}
+            <div className="form-group">
+              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: assetStore.hasAPIKey('unsplash') ? 14 : 12 }}>
+                  {assetStore.hasAPIKey('unsplash') ? '🟢' : '⚪'}
+                </span>
+                Unsplash API Key
+              </label>
+              <input
+                className="input"
+                type="password"
+                value={assetStore.apiKeys.unsplash}
+                onChange={(e) => assetStore.setAPIKey('unsplash', e.target.value)}
+                placeholder="Enter Unsplash API key"
+              />
+              <a
+                href="https://unsplash.com/oauth/applications"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 10, color: 'var(--accent)', marginTop: 4, display: 'block' }}
+              >
+                Get API key →
+              </a>
+            </div>
+
+            {/* Pexels */}
+            <div className="form-group">
+              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: assetStore.hasAPIKey('pexels') ? 14 : 12 }}>
+                  {assetStore.hasAPIKey('pexels') ? '🟢' : '⚪'}
+                </span>
+                Pexels API Key
+              </label>
+              <input
+                className="input"
+                type="password"
+                value={assetStore.apiKeys.pexels}
+                onChange={(e) => assetStore.setAPIKey('pexels', e.target.value)}
+                placeholder="Enter Pexels API key"
+              />
+              <a
+                href="https://www.pexels.com/api/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 10, color: 'var(--accent)', marginTop: 4, display: 'block' }}
+              >
+                Get API key →
+              </a>
+            </div>
+
+            {/* Pixabay */}
+            <div className="form-group">
+              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: assetStore.hasAPIKey('pixabay') ? 14 : 12 }}>
+                  {assetStore.hasAPIKey('pixabay') ? '🟢' : '⚪'}
+                </span>
+                Pixabay API Key
+              </label>
+              <input
+                className="input"
+                type="password"
+                value={assetStore.apiKeys.pixabay}
+                onChange={(e) => assetStore.setAPIKey('pixabay', e.target.value)}
+                placeholder="Enter Pixabay API key"
+              />
+              <a
+                href="https://pixabay.com/api/docs/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 10, color: 'var(--accent)', marginTop: 4, display: 'block' }}
+              >
+                Get API key →
+              </a>
+            </div>
+          </div>
+
           {/* Canvas Settings */}
           <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', padding: 16, marginTop: 16 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>🖼️ Canvas Defaults</h3>
+            <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>⚙️ Canvas Defaults</h3>
 
             <div className="form-group">
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>

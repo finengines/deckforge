@@ -2,14 +2,16 @@ import React, { useState } from 'react'
 import { LayerPanel } from './LayerPanel'
 import { PropertiesPanel } from './PropertiesPanel'
 import ComponentLibrary from '../library/ComponentLibrary'
+import { AssetBrowser } from '../assets/AssetBrowser'
 import { useEditorStore } from '../../stores/editorStore'
 
-type TabId = 'layers' | 'properties' | 'components'
+type TabId = 'layers' | 'properties' | 'components' | 'assets'
 
 const tabs: { id: TabId; label: string; icon: string }[] = [
   { id: 'layers', label: 'Layers', icon: '📑' },
   { id: 'properties', label: 'Properties', icon: '⚙' },
-  { id: 'components', label: 'Components', icon: '🧩' }
+  { id: 'components', label: 'Components', icon: '🧩' },
+  { id: 'assets', label: 'Assets', icon: '🖼' }
 ]
 
 export function RightPanelTabs(): React.JSX.Element {
@@ -82,6 +84,11 @@ export function RightPanelTabs(): React.JSX.Element {
                 layers.forEach((layer) => store.addLayer(layer))
               }}
             />
+          </div>
+        )}
+        {activeTab === 'assets' && (
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <AssetBrowser compact />
           </div>
         )}
       </div>
