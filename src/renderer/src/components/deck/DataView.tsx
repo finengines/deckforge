@@ -1,8 +1,10 @@
 import React, { useState } from "react"
 import { useEditorStore } from '../../stores/editorStore'
+import { useAIStore } from '../../stores/aiStore'
 import { exportCSV, exportJSON } from '../../lib/dataExport'
 import { ImportDialog } from './ImportDialog'
 import { BalanceDialog } from './BalanceDialog'
+import { generateText } from '../../lib/ai'
 
 function downloadText(text: string, filename: string, mime: string): void {
   const blob = new Blob([text], { type: mime })
@@ -22,8 +24,34 @@ export function DataView(): React.JSX.Element {
   const addCategory = useEditorStore((s) => s.addCategory)
   const removeCategory = useEditorStore((s) => s.removeCategory)
   const updateCategory = useEditorStore((s) => s.updateCategory)
+  const aiStore = useAIStore()
   const [showImport, setShowImport] = useState(false)
   const [showBalance, setShowBalance] = useState(false)
+  const [generatingFor, setGeneratingFor] = useState<{ cardId: string; field: 'description' | 'funFact' } | null>(null)
+
+  const handleGenerateContent = async (cardId: string, field: 'description' | 'funFact'): Promise<void> => {
+    const card = deck?.cards.find((c) => c.id === cardId)
+    if (!card || !deck) return
+    const providerConfig = aiStore.providers.find((p) => p.id === aiStore.defaults.text)
+    if (!providerConfig || !providerConfig.enabled) {
+      alert('Please enable and configure an AI provider in Settings first.')
+      return
+    }
+    setGeneratingFor({ cardId, field })
+    try {
+      const prompt = field === 'description'
+        ? `Write a brief, engaging 2-sentence description for a card game card about: "${card.name}". Keep it under 100 characters.`
+        : `Write a short, fun fact (1 sentence) about: "${card.name}". Make it interesting! Under 80 characters.`
+      const result = await generateText(providerConfig, { prompt, maxTokens: 100 })
+      const cleaned = result.trim().replace(/^["']|["']$/g, '')
+      updateCard(cardId, { [field]: cleaned, aiGenerated: { ...card.aiGenerated, [field]: true } })
+    } catch (err) {
+      console.error('Failed to generate content:', err)
+      alert('AI generation failed. Check AI settings.')
+    } finally {
+      setGeneratingFor(null)
+    }
+  }
 
   if (!deck) return <div />
 
@@ -200,18 +228,42 @@ export function DataView(): React.JSX.Element {
                   />
                 </td>
                 <td style={tdStyle}>
-                  <input
-                    className="input"
-                    value={card.description ?? ''}
-                    onChange={(e) => updateCard(card.id, { description: e.target.value })}
-                  />
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <input
+                      className="input"
+                      value={card.description ?? ''}
+                      onChange={(e) => updateCard(card.id, { description: e.target.value })}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => handleGenerateContent(card.id, 'description')}
+                      disabled={generatingFor?.cardId === card.id && generatingFor?.field === 'description'}
+                      title="Generate with AI"
+                      style={{ fontSize: 14, padding: '2px 6px' }}
+                    >
+                      {generatingFor?.cardId === card.id && generatingFor?.field === 'description' ? '...' : '✨'}
+                    </button>
+                  </div>
                 </td>
                 <td style={tdStyle}>
-                  <input
-                    className="input"
-                    value={card.funFact ?? ''}
-                    onChange={(e) => updateCard(card.id, { funFact: e.target.value })}
-                  />
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <input
+                      className="input"
+                      value={card.funFact ?? ''}
+                      onChange={(e) => updateCard(card.id, { funFact: e.target.value })}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => handleGenerateContent(card.id, 'funFact')}
+                      disabled={generatingFor?.cardId === card.id && generatingFor?.field === 'funFact'}
+                      title="Generate with AI"
+                      style={{ fontSize: 14, padding: '2px 6px' }}
+                    >
+                      {generatingFor?.cardId === card.id && generatingFor?.field === 'funFact' ? '...' : '✨'}
+                    </button>
+                  </div>
                 </td>
                 {deck.categories.map((cat) => (
                   <td key={cat.id} style={tdStyle}>

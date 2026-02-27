@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
 import { CompletenessChecker } from './CompletenessChecker'
 import { BalanceAnalyzer } from './BalanceAnalyzer'
+import { GameSimulator } from './GameSimulator'
 
 /** Get a color between red→yellow→green based on 0-1 ratio */
 function valueColor(ratio: number): string {
@@ -27,6 +28,7 @@ export function ScoreView(): React.JSX.Element {
   const [localStats, setLocalStats] = useState<Record<string, number>>({})
   const [showHealthCheck, setShowHealthCheck] = useState(false)
   const [showBalanceAnalyzer, setShowBalanceAnalyzer] = useState(false)
+  const [showSimulator, setShowSimulator] = useState(false)
   const animRef = useRef<HTMLDivElement>(null)
 
   // Sync order when cards change
@@ -207,10 +209,25 @@ export function ScoreView(): React.JSX.Element {
           className={`btn btn-sm ${showBalanceAnalyzer ? 'btn-active' : 'btn-ghost'}`}
           onClick={() => {
             setShowBalanceAnalyzer(!showBalanceAnalyzer)
-            if (!showBalanceAnalyzer) setShowHealthCheck(false)
+            if (!showBalanceAnalyzer) {
+              setShowHealthCheck(false)
+              setShowSimulator(false)
+            }
           }}
         >
           ⚖️ Balance
+        </button>
+        <button
+          className={`btn btn-sm ${showSimulator ? 'btn-active' : 'btn-ghost'}`}
+          onClick={() => {
+            setShowSimulator(!showSimulator)
+            if (!showSimulator) {
+              setShowHealthCheck(false)
+              setShowBalanceAnalyzer(false)
+            }
+          }}
+        >
+          🎮 Simulator
         </button>
       </div>
 
@@ -225,6 +242,13 @@ export function ScoreView(): React.JSX.Element {
       {showBalanceAnalyzer && (
         <div style={{ marginBottom: 16 }}>
           <BalanceAnalyzer />
+        </div>
+      )}
+
+      {/* Game Simulator */}
+      {showSimulator && (
+        <div style={{ marginBottom: 16 }}>
+          <GameSimulator />
         </div>
       )}
 

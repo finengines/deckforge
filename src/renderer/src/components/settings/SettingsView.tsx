@@ -44,11 +44,16 @@ export function SettingsView(): React.JSX.Element {
   const [generatingPalette, setGeneratingPalette] = useState(false)
 
   const handleGeneratePalette = async (): Promise<void> => {
-    if (!paletteKeyword.trim() || generatingPalette) return
+    if (!paletteKeyword.trim() || generatingPalette || !deck) return
+    const providerConfig = aiStore.providers.find((p) => p.id === aiStore.defaults.text)
+    if (!providerConfig || !providerConfig.enabled) {
+      alert('Please enable and configure an AI provider in Settings first.')
+      return
+    }
     setGeneratingPalette(true)
     try {
       const prompt = `Generate a color palette of 5 hex colors for a card game with theme: "${paletteKeyword}". Return ONLY a JSON object with keys: primary, secondary, background, text, accent. Example: {"primary":"#1a1a2e","secondary":"#16213e","background":"#0f3460","text":"#ffffff","accent":"#e94560"}. Ensure good contrast and readability.`
-      const result = await generateText(aiStore.providers, aiStore.defaults.text, { prompt, maxTokens: 200 })
+      const result = await generateText(providerConfig, { prompt, maxTokens: 200 })
       // Extract JSON from response
       const jsonMatch = result.match(/\{[^}]+\}/)
       if (jsonMatch) {
