@@ -66,7 +66,19 @@ export function ContextMenu({ visible, x, y, items, onClose }: Props): React.JSX
             }}
           >
             {item.icon && <span style={{ width: 16, textAlign: 'center' }}>{item.icon}</span>}
-            {item.label}
+            <span style={{ flex: 1 }}>{item.label}</span>
+            {item.shortcut && (
+              <span
+                style={{
+                  fontSize: 10,
+                  opacity: 0.5,
+                  fontFamily: 'monospace',
+                  marginLeft: 16
+                }}
+              >
+                {item.shortcut}
+              </span>
+            )}
           </button>
         )
       )}

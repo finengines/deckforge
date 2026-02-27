@@ -2,9 +2,6 @@ import { useEffect, useRef } from 'react'
 import { useEditorStore } from '../stores/editorStore'
 import type { EditorMode, Layer } from '../types'
 
-const NUDGE_SMALL = 1  // mm
-const NUDGE_LARGE = 10 // mm
-
 /**
  * Check if the event target is an editable element (input, textarea, contenteditable)
  * Prevents keyboard shortcuts from interfering with text editing
@@ -288,7 +285,7 @@ export function useKeyboardShortcuts(): void {
         }
         if (selectedLayerIds.length > 0) {
           e.preventDefault()
-          const amount = e.shiftKey ? NUDGE_LARGE : NUDGE_SMALL
+          const amount = e.shiftKey ? store.nudgeLarge : store.nudgeSmall
           const dx = e.key === 'ArrowLeft' ? -amount : e.key === 'ArrowRight' ? amount : 0
           const dy = e.key === 'ArrowUp' ? -amount : e.key === 'ArrowDown' ? amount : 0
           if (!currentDeck) return

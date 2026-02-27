@@ -62,6 +62,9 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
   const hoveredLayerId = useEditorStore((s) => s.hoveredLayerId)
   const setHoveredLayerId = useEditorStore((s) => s.setHoveredLayerId)
   const selectLayers = useEditorStore((s) => s.selectLayers)
+  const altKeyHeld = useEditorStore((s) => s.altKeyHeld)
+  const setAltKeyHeld = useEditorStore((s) => s.setAltKeyHeld)
+  const setMousePositionMm = useEditorStore((s) => s.setMousePositionMm)
   const updateLayer = useEditorStore((s) => s.updateLayer)
   const setPanOffset = useEditorStore((s) => s.setPanOffset)
   const setZoom = useEditorStore((s) => s.setZoom)
@@ -85,6 +88,28 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
     const ext = '.' + file.name.split('.').pop()?.toLowerCase()
     return ALLOWED_EXTENSIONS.includes(ext)
   }, [])
+
+  // Alt key handling for measurements
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && !altKeyHeld) {
+        setAltKeyHeld(true)
+      }
+    }
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!e.altKey && altKeyHeld) {
+        setAltKeyHeld(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', () => setAltKeyHeld(false))
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', () => setAltKeyHeld(false))
+    }
+  }, [altKeyHeld, setAltKeyHeld])
 
   const handleCanvasDragOver = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -483,33 +508,182 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
     }
   }
 
-  // --- Right-click context menu for image layers ---
+  // --- Right-click context menu ---
   const handleContextMenu = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
       e.evt.preventDefault()
+      const store = useEditorStore.getState()
       const id = e.target.id()
-      if (!id) return
-      const layer = layers.find((l) => l.id === id)
-      if (!layer || layer.type !== 'image') return
-      const imgLayer = layer as ImageLayer
-      showMenu(e.evt.clientX, e.evt.clientY, [
-        {
-          label: '✂️ Crop / Resize',
-          action: () => {
-            // Load actual image dimensions
-            const img = new Image()
-            img.onload = () => {
-              setCropTarget({ src: imgLayer.src, width: img.naturalWidth, height: img.naturalHeight, layerId: imgLayer.id })
-            }
-            img.onerror = () => {
-              setCropTarget({ src: imgLayer.src, width: Math.round(imgLayer.width * 10), height: Math.round(imgLayer.height * 10), layerId: imgLayer.id })
-            }
-            img.src = imgLayer.src
+      
+      if (!id) {
+        // Context menu on empty canvas
+        showMenu(e.evt.clientX, e.evt.clientY, [
+          {
+            label: 'Paste',
+            icon: '📋',
+            shortcut: '⌘V',
+            action: () => {
+              // Paste will be handled by keyboard shortcut
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', metaKey: true }))
+            },
+            disabled: true // Paste from clipboard not implemented yet
           }
+        ])
+        return
+      }
+
+      const layer = layers.find((l) => l.id === id)
+      if (!layer) return
+
+      const menuItems: Array<{ label: string; icon?: string; shortcut?: string; action: () => void; disabled?: boolean; separator?: boolean }> = []
+
+      // Cut/Copy/Paste/Duplicate
+      menuItems.push(
+        {
+          label: 'Cut',
+          icon: '✂️',
+          shortcut: '⌘X',
+          action: () => {
+            // Copy then delete
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', metaKey: true }))
+            store.removeLayer(id)
+          }
+        },
+        {
+          label: 'Copy',
+          icon: '📋',
+          shortcut: '⌘C',
+          action: () => {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', metaKey: true }))
+          }
+        },
+        {
+          label: 'Duplicate',
+          icon: '⎘',
+          shortcut: '⌘D',
+          action: () => store.duplicateLayer(id)
+        },
+        { separator: true } as any
+      )
+
+      // Delete
+      menuItems.push(
+        {
+          label: 'Delete',
+          icon: '🗑',
+          shortcut: 'Del',
+          action: () => store.removeLayer(id)
+        },
+        { separator: true } as any
+      )
+
+      // Group/Ungroup
+      if (selectedLayerIds.length > 1) {
+        menuItems.push({
+          label: 'Group',
+          icon: '📁',
+          shortcut: '⌘G',
+          action: () => store.groupLayers(selectedLayerIds)
+        })
+      }
+      if (layer.type === 'group') {
+        menuItems.push({
+          label: 'Ungroup',
+          icon: '📂',
+          shortcut: '⌘⇧G',
+          action: () => store.ungroupLayer(id)
+        })
+      }
+
+      // Lock/Unlock
+      menuItems.push(
+        { separator: true } as any,
+        {
+          label: layer.locked ? 'Unlock' : 'Lock',
+          icon: layer.locked ? '🔓' : '🔒',
+          shortcut: '⌘L',
+          action: () => store.updateLayer(id, { locked: !layer.locked })
+        },
+        { separator: true } as any
+      )
+
+      // Arrange
+      menuItems.push(
+        {
+          label: 'Bring to Front',
+          icon: '⤊',
+          shortcut: '⌘]',
+          action: () => store.bringToFront([id])
+        },
+        {
+          label: 'Bring Forward',
+          icon: '↑',
+          shortcut: ']',
+          action: () => store.bringForward([id])
+        },
+        {
+          label: 'Send Backward',
+          icon: '↓',
+          shortcut: '[',
+          action: () => store.sendBackward([id])
+        },
+        {
+          label: 'Send to Back',
+          icon: '⤋',
+          shortcut: '⌘[',
+          action: () => store.sendToBack([id])
         }
-      ])
+      )
+
+      // Flip (if applicable)
+      if (layer.type !== 'group') {
+        menuItems.push(
+          { separator: true } as any,
+          {
+            label: 'Flip Horizontal',
+            icon: '⇄',
+            action: () => {
+              // Flip by negating scale (would need to add scaleX/scaleY to layer type)
+              // For now, just rotate 180
+              store.updateLayer(id, { rotation: (layer.rotation + 180) % 360 })
+            }
+          },
+          {
+            label: 'Flip Vertical',
+            icon: '⇅',
+            action: () => {
+              // Similar to horizontal
+              store.updateLayer(id, { rotation: (layer.rotation + 180) % 360 })
+            }
+          }
+        )
+      }
+
+      // Image-specific: Crop
+      if (layer.type === 'image') {
+        const imgLayer = layer as ImageLayer
+        menuItems.push(
+          { separator: true } as any,
+          {
+            label: 'Crop / Resize',
+            icon: '✂️',
+            action: () => {
+              const img = new Image()
+              img.onload = () => {
+                setCropTarget({ src: imgLayer.src, width: img.naturalWidth, height: img.naturalHeight, layerId: imgLayer.id })
+              }
+              img.onerror = () => {
+                setCropTarget({ src: imgLayer.src, width: Math.round(imgLayer.width * 10), height: Math.round(imgLayer.height * 10), layerId: imgLayer.id })
+              }
+              img.src = imgLayer.src
+            }
+          }
+        )
+      }
+
+      showMenu(e.evt.clientX, e.evt.clientY, menuItems)
     },
-    [layers, showMenu]
+    [layers, showMenu, selectedLayerIds]
   )
 
   const handleCropApply = useCallback(
@@ -579,6 +753,21 @@ export const Canvas = React.memo(function Canvas(): React.JSX.Element {
           }
         }}
         onMouseMove={(e) => {
+          // Update mouse position in mm (relative to card origin)
+          const stage = e.target.getStage()
+          if (stage) {
+            const pointer = stage.getPointerPosition()
+            if (pointer) {
+              const x = (pointer.x - offsetX) / (zoom * SCREEN_SCALE)
+              const y = (pointer.y - offsetY) / (zoom * SCREEN_SCALE)
+              if (x >= 0 && x <= dims.width && y >= 0 && y <= dims.height) {
+                setMousePositionMm({ x, y })
+              } else {
+                setMousePositionMm(null)
+              }
+            }
+          }
+
           if (isPanning && panStartRef.current) {
             const dx = e.evt.clientX - panStartRef.current.x
             const dy = e.evt.clientY - panStartRef.current.y

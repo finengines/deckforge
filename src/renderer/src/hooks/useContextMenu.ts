@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 export interface ContextMenuItem {
   label: string
   icon?: string
+  shortcut?: string
   action: () => void
   disabled?: boolean
   separator?: boolean

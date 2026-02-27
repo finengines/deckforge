@@ -14,7 +14,8 @@ import type {
   CardCategory,
   CardDimensions,
   DeckTheme,
-  CardTemplate
+  CardTemplate,
+  Guide
 } from '../types'
 
 /** Max length for names/descriptions to prevent UI overflow */
@@ -123,6 +124,20 @@ interface EditorStore extends EditorState {
   // --- Hover ---
   hoveredLayerId: string | null
   setHoveredLayerId: (id: string | null) => void
+
+  // --- Guides ---
+  addGuide: (axis: 'h' | 'v', position: number) => void
+  updateGuide: (id: string, position: number) => void
+  removeGuide: (id: string) => void
+
+  // --- Nudge Settings ---
+  setNudgeSettings: (small: number, large: number) => void
+
+  // --- Alt Key (for measurements) ---
+  setAltKeyHeld: (held: boolean) => void
+
+  // --- Mouse Position ---
+  setMousePositionMm: (pos: Point | null) => void
 }
 
 export const useEditorStore = create<EditorStore>()(
@@ -147,6 +162,11 @@ export const useEditorStore = create<EditorStore>()(
       showGrid: true,
       showLayoutGuides: false,
       hoveredLayerId: null,
+      guides: [],
+      nudgeSmall: 1,
+      nudgeLarge: 10,
+      altKeyHeld: false,
+      mousePositionMm: null,
 
       // --- View ---
       setView: (view) =>
@@ -843,6 +863,46 @@ export const useEditorStore = create<EditorStore>()(
       setHoveredLayerId: (id) =>
         set((s) => {
           s.hoveredLayerId = id
+        }),
+
+      // --- Guides ---
+      addGuide: (axis, position) =>
+        set((s) => {
+          s.guides.push({
+            id: uuid(),
+            axis,
+            position
+          })
+        }),
+
+      updateGuide: (id, position) =>
+        set((s) => {
+          const guide = s.guides.find((g) => g.id === id)
+          if (guide) guide.position = position
+        }),
+
+      removeGuide: (id) =>
+        set((s) => {
+          s.guides = s.guides.filter((g) => g.id !== id)
+        }),
+
+      // --- Nudge Settings ---
+      setNudgeSettings: (small, large) =>
+        set((s) => {
+          s.nudgeSmall = Math.max(0.1, Math.min(100, small))
+          s.nudgeLarge = Math.max(0.1, Math.min(100, large))
+        }),
+
+      // --- Alt Key (for measurements) ---
+      setAltKeyHeld: (held) =>
+        set((s) => {
+          s.altKeyHeld = held
+        }),
+
+      // --- Mouse Position ---
+      setMousePositionMm: (pos) =>
+        set((s) => {
+          s.mousePositionMm = pos
         })
     })),
     { limit: 100 }

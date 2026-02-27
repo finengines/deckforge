@@ -33,6 +33,40 @@ export interface CardDimensions {
 
 export type LayerType = 'text' | 'image' | 'shape' | 'group' | 'component'
 
+export interface Fill {
+  id: string
+  color: string
+  opacity: number
+  hidden: boolean
+}
+
+export interface Stroke {
+  id: string
+  color: string
+  width: number
+  style: 'solid' | 'dashed' | 'dotted'
+  alignment: 'inside' | 'center' | 'outside'
+  opacity: number
+  hidden: boolean
+}
+
+export interface Shadow {
+  id: string
+  style: 'drop' | 'inner'
+  color: string
+  opacity: number
+  offsetX: number
+  offsetY: number
+  blur: number
+  spread: number
+  hidden: boolean
+}
+
+export interface Blur {
+  value: number
+  hidden: boolean
+}
+
 export interface BaseLayer {
   id: string
   type: LayerType
@@ -47,6 +81,14 @@ export interface BaseLayer {
   locked: boolean
   /** If set, this layer's content is bound to a card data field */
   bindTo?: string
+  /** Multiple fills (color + opacity) */
+  fills?: Fill[]
+  /** Multiple strokes */
+  strokes?: Stroke[]
+  /** Multiple shadows (drop/inner) */
+  shadows?: Shadow[]
+  /** Layer blur */
+  blur?: Blur
 }
 
 export interface TextLayer extends BaseLayer {
@@ -302,6 +344,13 @@ export interface AISettings {
 export type EditorMode = 'select' | 'text' | 'shape' | 'image' | 'pan' | 'zoom'
 export type EditorView = 'design' | 'data' | 'score' | 'export' | 'settings'
 
+export interface Guide {
+  id: string
+  axis: 'h' | 'v'
+  /** Position in mm */
+  position: number
+}
+
 export interface EditorState {
   /** Current view/tab */
   view: EditorView
@@ -337,4 +386,13 @@ export interface EditorState {
   showLayoutGuides: boolean
   /** Hovered layer id */
   hoveredLayerId: string | null
+  /** Draggable guide lines */
+  guides: Guide[]
+  /** Nudge settings (mm) */
+  nudgeSmall: number
+  nudgeLarge: number
+  /** Alt key held for measurements */
+  altKeyHeld: boolean
+  /** Mouse position in mm (relative to card origin) */
+  mousePositionMm: Point | null
 }

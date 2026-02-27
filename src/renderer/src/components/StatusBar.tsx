@@ -30,6 +30,7 @@ const dotStyle = (color: string): React.CSSProperties => ({
 export function StatusBar({ saveStatus = 'idle' }: StatusBarProps): React.JSX.Element {
   const zoom = useEditorStore((s) => s.zoom)
   const deck = useEditorStore((s) => s.currentDeck)
+  const mousePositionMm = useEditorStore((s) => s.mousePositionMm)
 
   const cardCount = deck?.cards.length ?? 0
   const deckName = deck?.name ?? ''
@@ -44,6 +45,11 @@ export function StatusBar({ saveStatus = 'idle' }: StatusBarProps): React.JSX.El
   return (
     <div style={barStyle}>
       <span>{Math.round(zoom * 100)}%</span>
+      {mousePositionMm && (
+        <span>
+          X: {mousePositionMm.x.toFixed(1)}mm, Y: {mousePositionMm.y.toFixed(1)}mm
+        </span>
+      )}
       <span>{cardCount} card{cardCount !== 1 ? 's' : ''}</span>
       <span style={{ flex: 1 }}>{deckName}</span>
       {saveInfo.text && (

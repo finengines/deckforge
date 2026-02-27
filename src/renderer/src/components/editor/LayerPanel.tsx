@@ -10,6 +10,14 @@ const layerIcons: Record<string, string> = {
   component: '🧩'
 }
 
+const layerColors: Record<string, string> = {
+  text: '#3b82f6',    // blue
+  image: '#22c55e',   // green
+  shape: '#f97316',   // orange
+  group: '#a855f7',   // purple
+  component: '#ec4899' // pink
+}
+
 interface LayerTreeItemProps {
   layer: Layer
   depth: number
@@ -31,12 +39,47 @@ function LayerTreeItem({
   onToggleExpand,
   isExpanded
 }: LayerTreeItemProps): React.JSX.Element {
+  const [isRenaming, setIsRenaming] = React.useState(false)
+  const [nameInput, setNameInput] = React.useState(layer.name)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  React.useEffect(() => {
+    if (isRenaming && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isRenaming])
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsRenaming(true)
+    setNameInput(layer.name)
+  }
+
+  const handleRenameComplete = () => {
+    if (nameInput.trim()) {
+      const updateLayer = useEditorStore.getState().updateLayer
+      updateLayer(layer.id, { name: nameInput.trim() })
+    }
+    setIsRenaming(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleRenameComplete()
+    } else if (e.key === 'Escape') {
+      setIsRenaming(false)
+      setNameInput(layer.name)
+    }
+  }
+
   return (
     <>
       <div
         className={`layer-item ${isSelected ? 'selected' : ''}`}
         style={{ paddingLeft: depth * 12 + 8 }}
         onClick={(e) => onSelect(layer.id, e.shiftKey)}
+        onDoubleClick={handleDoubleClick}
       >
         {layer.type === 'group' && (
           <span
@@ -53,8 +96,42 @@ function LayerTreeItem({
             ▶
           </span>
         )}
+        {/* Color dot */}
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            backgroundColor: layerColors[layer.type] ?? '#888',
+            display: 'inline-block',
+            marginRight: 6,
+            flexShrink: 0
+          }}
+        />
         <span className="layer-item-icon">{layerIcons[layer.type] ?? '?'}</span>
-        <span className="layer-item-name">{layer.name}</span>
+        {isRenaming ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onBlur={handleRenameComplete}
+            onKeyDown={handleKeyDown}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              flex: 1,
+              fontSize: 11,
+              padding: '1px 4px',
+              border: '1px solid var(--accent)',
+              borderRadius: 2,
+              background: 'var(--bg-tertiary)',
+              color: 'var(--text-primary)',
+              outline: 'none'
+            }}
+          />
+        ) : (
+          <span className="layer-item-name">{layer.name}</span>
+        )}
         {layer.bindTo && (
           <span style={{ fontSize: 9, opacity: 0.6, marginLeft: 4 }} title={`Bound to: ${layer.bindTo}`}>
             🔗
