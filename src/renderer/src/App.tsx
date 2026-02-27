@@ -3,6 +3,7 @@ import { useEditorStore } from './stores/editorStore'
 import { useDeckPersistence } from './hooks/useDeckPersistence'
 import { Toolbar } from './components/editor/Toolbar'
 import { Canvas } from './components/editor/Canvas'
+import { ComponentEditor } from './components/editor/ComponentEditor'
 // LayerPanel and PropertiesPanel are now used inside RightPanelTabs
 import { DeckPanel } from './components/deck/DeckPanel'
 import { DataView } from './components/deck/DataView'
@@ -45,6 +46,7 @@ function App(): React.JSX.Element {
             <RightPanelTabs />
           </>
         )}
+        {view === 'components' && <ComponentEditor />}
         {view === 'data' && <DataView />}
         {view === 'score' && <ScoreView />}
         {view === 'export' && <ExportView />}

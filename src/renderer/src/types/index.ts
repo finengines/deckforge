@@ -161,31 +161,58 @@ export type Layer = TextLayer | ImageLayer | ShapeLayer | GroupLayer | Component
 
 // --- Components (Reusable Elements) ---
 
+export type ComponentSlotType = 
+  | 'text'           // Plain text slot (card name, description, etc.)
+  | 'stat-label'     // Stat category name
+  | 'stat-value'     // Stat numeric value
+  | 'stat-bar-fill'  // Dynamic bar that scales width based on stat value
+  | 'image'          // Image slot (card photo, icon, etc.)
+
 export interface ComponentSlot {
   id: string
   name: string
-  type: 'text' | 'image' | 'number'
-  /** Position within the component (relative coords) */
+  type: ComponentSlotType
+  /** Position within the component (relative coords in mm) */
   bounds: Rect
-  /** Default value */
+  /** Data binding (e.g., 'name', 'description', 'stat:speed') */
+  bindTo?: string
+  /** Default/placeholder value */
   defaultValue?: string | number
-  /** Style overrides for text slots */
-  style?: Partial<TextLayer>
+  /** For stat-bar-fill: min and max values for scaling */
+  minValue?: number
+  maxValue?: number
+  /** For stat-bar-fill: fill direction */
+  barDirection?: 'horizontal' | 'vertical'
+  /** Text style overrides (fontSize, fontFamily, color, align, etc.) */
+  textStyle?: {
+    fontSize?: number
+    fontFamily?: string
+    fontWeight?: string
+    fontStyle?: string
+    fill?: string
+    align?: 'left' | 'center' | 'right'
+    verticalAlign?: 'top' | 'middle' | 'bottom'
+  }
+  /** Image fit mode for image slots */
+  imageFit?: 'cover' | 'contain' | 'fill'
 }
 
 export interface ComponentDefinition {
   id: string
   name: string
   description: string
+  category: 'stat-bar' | 'title' | 'image-frame' | 'badge' | 'decoration' | 'custom'
   /** Size of the component in mm */
   width: number
   height: number
-  /** Visual layers (the static design) */
+  /** Background image (imported or AI-generated) */
+  backgroundImage?: string  // data URL or file path
+  /** Visual layers (static design elements on top of background) */
   layers: Layer[]
-  /** Dynamic data slots that can be bound to card data */
+  /** Dynamic data slots overlaid on the background */
   slots: ComponentSlot[]
-  /** Optional PSD source file path */
-  psdSource?: string
+  /** Optional PSD/source file path */
+  sourceFile?: string
   /** Thumbnail for the component library */
   thumbnail?: string
   createdAt: string
@@ -342,7 +369,7 @@ export interface AISettings {
 // --- App State ---
 
 export type EditorMode = 'select' | 'text' | 'shape' | 'image' | 'pan' | 'zoom'
-export type EditorView = 'design' | 'data' | 'score' | 'export' | 'settings'
+export type EditorView = 'design' | 'data' | 'score' | 'export' | 'settings' | 'components'
 
 export interface Guide {
   id: string

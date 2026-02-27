@@ -85,7 +85,7 @@ export function psdToComponentDefinition(
   psdData: { width: number; height: number; layers: PsdLayerInfo[] },
   targetWidthMm: number,
   targetHeightMm: number,
-  slotMappings: Record<string, { type: 'text' | 'image' | 'number'; slotName: string }>
+  slotMappings: Record<string, { type: 'text' | 'image' | 'stat-value' | 'stat-label' | 'stat-bar-fill'; slotName: string }>
 ): ComponentDefinition {
   const now = new Date().toISOString()
   const compLayers: Layer[] = []
@@ -180,6 +180,7 @@ export function psdToComponentDefinition(
     id: uuid(),
     name,
     description: `Imported from PSD (${psdData.width}×${psdData.height}px)`,
+    category: 'custom',
     width: targetWidthMm,
     height: targetHeightMm,
     layers: compLayers,

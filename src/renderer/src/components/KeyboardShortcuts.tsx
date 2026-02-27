@@ -30,9 +30,20 @@ const categories: ShortcutCategory[] = [
       { action: 'Zoom In', mac: '⌘+', win: 'Ctrl+=' },
       { action: 'Zoom Out', mac: '⌘−', win: 'Ctrl+−' },
       { action: 'Zoom to Fit', mac: '⌘0', win: 'Ctrl+0' },
-      { action: 'Toggle Grid', mac: '⌘G', win: 'Ctrl+G' },
       { action: 'Nudge 1mm', mac: '← → ↑ ↓', win: '← → ↑ ↓' },
       { action: 'Nudge 10mm', mac: '⇧ + Arrow', win: 'Shift + Arrow' }
+    ]
+  },
+  {
+    name: 'Layers',
+    shortcuts: [
+      { action: 'Group Layers', mac: '⌘G', win: 'Ctrl+G' },
+      { action: 'Ungroup', mac: '⌘⇧G', win: 'Ctrl+Shift+G' },
+      { action: 'Lock/Unlock', mac: '⌘L', win: 'Ctrl+L' },
+      { action: 'Send Backward', mac: '[', win: '[' },
+      { action: 'Bring Forward', mac: ']', win: ']' },
+      { action: 'Send to Back', mac: '⌘[', win: 'Ctrl+[' },
+      { action: 'Bring to Front', mac: '⌘]', win: 'Ctrl+]' }
     ]
   },
   {

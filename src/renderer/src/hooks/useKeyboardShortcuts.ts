@@ -234,8 +234,33 @@ export function useKeyboardShortcuts(): void {
           return
         }
         e.preventDefault()
-        for (const id of selectedLayerIds) {
-          store.duplicateLayer(id)
+        if (!currentDeck) return
+        
+        // Collect all layers to duplicate first
+        const template = editingSide === 'front' ? currentDeck.frontTemplate : currentDeck.backTemplate
+        const layers = editingSide === 'back' && template.backLayers !== null
+          ? template.backLayers
+          : template.frontLayers
+        
+        const layersToDuplicate = layers.filter(l => selectedLayerIds.includes(l.id))
+        const newIds: string[] = []
+        
+        // Duplicate all selected layers
+        for (const layer of layersToDuplicate) {
+          const clone: Layer = {
+            ...JSON.parse(JSON.stringify(layer)),
+            id: crypto.randomUUID(),
+            name: `${layer.name} (copy)`,
+            x: layer.x + 5,
+            y: layer.y + 5
+          }
+          store.addLayer(clone)
+          newIds.push(clone.id)
+        }
+        
+        // Select all duplicated layers
+        if (newIds.length > 0) {
+          store.selectLayers(newIds)
         }
         return
       }

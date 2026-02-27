@@ -1,359 +1,845 @@
-import React from "react"
-import { useState, useCallback, useRef } from 'react'
-import { v4 as uuid } from 'uuid'
+import React, { useRef, useState } from 'react'
+import { Stage, Layer, Rect, Text, Image as KonvaImage, Transformer } from 'react-konva'
+import Konva from 'konva'
+import { useComponentStore } from '../../stores/componentStore'
 import { useEditorStore } from '../../stores/editorStore'
-import { importPsdFile, psdToComponentDefinition, type PsdLayerInfo } from '../../lib/psd'
-import type { ComponentDefinition, ComponentSlot, Rect } from '../../types'
+import { useImage } from '../../hooks/useImage'
+import type { ComponentSlot, ComponentSlotType, ComponentDefinition } from '../../types'
 
-interface Props {
-  /** Existing component to edit, or null for new */
-  component?: ComponentDefinition | null
-  onClose: () => void
-  onSave: (component: ComponentDefinition) => void
+/** Scale factor: 3px per mm */
+const SCREEN_SCALE = 3
+
+const SLOT_TYPE_COLORS: Record<ComponentSlotType, string> = {
+  text: '#3b82f6',
+  'stat-label': '#f59e0b',
+  'stat-value': '#10b981',
+  'stat-bar-fill': '#8b5cf6',
+  image: '#ec4899'
 }
 
-const SLOT_COLORS = ['#e94560', '#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#00BCD4']
+const SLOT_TYPE_LABELS: Record<ComponentSlotType, string> = {
+  text: 'Text',
+  'stat-label': 'Stat Label',
+  'stat-value': 'Stat Value',
+  'stat-bar-fill': 'Stat Bar Fill',
+  image: 'Image'
+}
 
-export function ComponentEditor({ component, onClose, onSave }: Props): React.JSX.Element {
-  const deck = useEditorStore((s) => s.currentDeck)
+function SlotNode({
+  slot,
+  isSelected,
+  onSelect,
+  onDragEnd,
+  onTransformEnd
+}: {
+  slot: ComponentSlot
+  isSelected: boolean
+  onSelect: () => void
+  onDragEnd: (x: number, y: number) => void
+  onTransformEnd: (x: number, y: number, width: number, height: number) => void
+}): React.JSX.Element {
+  const rectRef = useRef<Konva.Rect>(null)
+  const trRef = useRef<Konva.Transformer>(null)
 
-  const [name, setName] = useState(component?.name ?? '')
-  const [description, setDescription] = useState(component?.description ?? '')
-  const [width, setWidth] = useState(component?.width ?? (deck?.dimensions.width ?? 62))
-  const [height, setHeight] = useState(component?.height ?? (deck?.dimensions.height ?? 100))
-  const [slots, setSlots] = useState<ComponentSlot[]>(component?.slots ?? [])
-  const [psdLayers, setPsdLayers] = useState<PsdLayerInfo[] | null>(null)
-  const [psdSize, setPsdSize] = useState<{ width: number; height: number } | null>(null)
-  const [slotMappings, setSlotMappings] = useState<
-    Record<string, { type: 'text' | 'image' | 'number'; slotName: string }>
-  >({})
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const addSlot = useCallback(() => {
-    const slot: ComponentSlot = {
-      id: uuid(),
-      name: `Slot ${slots.length + 1}`,
-      type: 'text',
-      bounds: { x: 5, y: 5 + slots.length * 12, width: width - 10, height: 10 },
-      defaultValue: ''
+  React.useEffect(() => {
+    if (isSelected && trRef.current && rectRef.current) {
+      trRef.current.nodes([rectRef.current])
+      trRef.current.getLayer()?.batchDraw()
     }
-    setSlots([...slots, slot])
-  }, [slots, width])
+  }, [isSelected])
 
-  const updateSlot = useCallback(
-    (id: string, updates: Partial<ComponentSlot>) => {
-      setSlots(slots.map((s) => (s.id === id ? { ...s, ...updates } : s)))
-    },
-    [slots]
+  return (
+    <>
+      <Rect
+        ref={rectRef}
+        x={slot.bounds.x * SCREEN_SCALE}
+        y={slot.bounds.y * SCREEN_SCALE}
+        width={slot.bounds.width * SCREEN_SCALE}
+        height={slot.bounds.height * SCREEN_SCALE}
+        fill="transparent"
+        stroke={SLOT_TYPE_COLORS[slot.type]}
+        strokeWidth={isSelected ? 2 : 1}
+        dash={[4, 4]}
+        draggable
+        onClick={onSelect}
+        onTap={onSelect}
+        onDragEnd={(e) => {
+          const node = e.target
+          onDragEnd(node.x() / SCREEN_SCALE, node.y() / SCREEN_SCALE)
+        }}
+        onTransformEnd={() => {
+          const node = rectRef.current
+          if (!node) return
+          const scaleX = node.scaleX()
+          const scaleY = node.scaleY()
+          node.scaleX(1)
+          node.scaleY(1)
+          onTransformEnd(
+            node.x() / SCREEN_SCALE,
+            node.y() / SCREEN_SCALE,
+            (node.width() * scaleX) / SCREEN_SCALE,
+            (node.height() * scaleY) / SCREEN_SCALE
+          )
+        }}
+      />
+      {/* Label */}
+      <Text
+        x={slot.bounds.x * SCREEN_SCALE + 4}
+        y={slot.bounds.y * SCREEN_SCALE + 2}
+        text={slot.name}
+        fontSize={10}
+        fill={SLOT_TYPE_COLORS[slot.type]}
+        listening={false}
+      />
+      {isSelected && (
+        <Transformer
+          ref={trRef}
+          rotateEnabled={false}
+          borderStroke={SLOT_TYPE_COLORS[slot.type]}
+          anchorStroke={SLOT_TYPE_COLORS[slot.type]}
+          anchorFill="white"
+          anchorSize={8}
+        />
+      )}
+    </>
   )
+}
 
-  const removeSlot = useCallback(
-    (id: string) => {
-      setSlots(slots.filter((s) => s.id !== id))
-    },
-    [slots]
-  )
+function ComponentCanvas(): React.JSX.Element {
+  const stageRef = useRef<Konva.Stage>(null)
+  const component = useComponentStore((s) => s.currentComponent)
+  const selectedSlotIds = useComponentStore((s) => s.selectedSlotIds)
+  const selectSlots = useComponentStore((s) => s.selectSlots)
+  const updateSlot = useComponentStore((s) => s.updateSlot)
 
-  const updateSlotBounds = useCallback(
-    (id: string, key: keyof Rect, value: number) => {
-      setSlots(
-        slots.map((s) => (s.id === id ? { ...s, bounds: { ...s.bounds, [key]: value } } : s))
-      )
-    },
-    [slots]
-  )
+  const [bgImage] = useImage(component?.backgroundImage)
 
-  const handlePsdImport = useCallback(async () => {
-    fileInputRef.current?.click()
-  }, [])
+  if (!component) return <div />
 
-  const handleFileChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
-      if (!file) return
-      try {
-        const result = await importPsdFile(file)
-        setPsdLayers(result.layers)
-        setPsdSize({ width: result.width, height: result.height })
-      } catch (err) {
-        console.error('PSD import failed:', err)
-      }
-    },
-    []
-  )
+  const canvasWidth = component.width * SCREEN_SCALE
+  const canvasHeight = component.height * SCREEN_SCALE
 
-  const handlePsdMapping = useCallback(
-    (layerName: string, type: 'text' | 'image' | 'number', slotName: string) => {
-      setSlotMappings({ ...slotMappings, [layerName]: { type, slotName } })
-    },
-    [slotMappings]
-  )
-
-  const handleCreateFromPsd = useCallback(() => {
-    if (!psdLayers || !psdSize) return
-    const comp = psdToComponentDefinition(
-      name || 'PSD Component',
-      { ...psdSize, layers: psdLayers },
-      width,
-      height,
-      slotMappings
-    )
-    onSave(comp)
-  }, [psdLayers, psdSize, name, width, height, slotMappings, onSave])
-
-  const handleSave = useCallback(() => {
-    const now = new Date().toISOString()
-    const comp: ComponentDefinition = {
-      id: component?.id ?? uuid(),
-      name: name || 'Untitled Component',
-      description,
-      width,
-      height,
-      layers: component?.layers ?? [],
-      slots,
-      createdAt: component?.createdAt ?? now,
-      updatedAt: now
+  const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>): void => {
+    // Deselect if clicking on stage background
+    if (e.target === e.target.getStage()) {
+      selectSlots([])
     }
-    onSave(comp)
-  }, [component, name, description, width, height, slots, onSave])
+  }
 
   return (
     <div
       style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.6)',
+        flex: 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000
+        background: '#1a1a1a',
+        overflow: 'auto',
+        padding: 40
       }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         style={{
-          background: 'var(--bg-primary, #1a1a2e)',
-          border: '1px solid var(--border, #333)',
+          background: '#2a2a2a',
           borderRadius: 8,
-          width: 720,
-          maxHeight: '85vh',
-          overflow: 'auto',
-          padding: 24
+          padding: 20,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ margin: 0, color: 'var(--text-primary, #fff)' }}>
-            {component ? 'Edit Component' : 'New Component'}
-          </h2>
-          <button onClick={onClose} style={closeBtnStyle}>✕</button>
-        </div>
-
-        {/* Basic info */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-          <label style={labelStyle}>
-            Name
-            <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="Component name" />
-          </label>
-          <label style={labelStyle}>
-            Description
-            <input style={inputStyle} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" />
-          </label>
-          <label style={labelStyle}>
-            Width (mm)
-            <input style={inputStyle} type="number" value={width} onChange={(e) => setWidth(Number(e.target.value))} />
-          </label>
-          <label style={labelStyle}>
-            Height (mm)
-            <input style={inputStyle} type="number" value={height} onChange={(e) => setHeight(Number(e.target.value))} />
-          </label>
-        </div>
-
-        {/* Visual Preview */}
-        <div style={{ marginBottom: 16 }}>
-          <h3 style={{ color: 'var(--text-primary, #fff)', marginBottom: 8, fontSize: 14 }}>Preview</h3>
-          <div
-            style={{
-              position: 'relative',
-              width: width * 3,
-              height: height * 3,
-              background: '#fff',
-              border: '1px solid var(--border, #333)',
-              borderRadius: 4,
-              overflow: 'hidden'
-            }}
-          >
-            {slots.map((slot, i) => (
-              <div
+        <Stage ref={stageRef} width={canvasWidth} height={canvasHeight} onClick={handleStageClick}>
+          <Layer>
+            {/* Background */}
+            <Rect
+              x={0}
+              y={0}
+              width={canvasWidth}
+              height={canvasHeight}
+              fill={bgImage ? 'transparent' : '#ffffff'}
+              stroke="#666"
+              strokeWidth={1}
+            />
+            {/* Background Image */}
+            {bgImage && (
+              <KonvaImage
+                x={0}
+                y={0}
+                width={canvasWidth}
+                height={canvasHeight}
+                image={bgImage}
+              />
+            )}
+            {/* Slots */}
+            {component.slots.map((slot) => (
+              <SlotNode
                 key={slot.id}
-                style={{
-                  position: 'absolute',
-                  left: slot.bounds.x * 3,
-                  top: slot.bounds.y * 3,
-                  width: slot.bounds.width * 3,
-                  height: slot.bounds.height * 3,
-                  border: `2px dashed ${SLOT_COLORS[i % SLOT_COLORS.length]}`,
-                  background: `${SLOT_COLORS[i % SLOT_COLORS.length]}22`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 10,
-                  color: SLOT_COLORS[i % SLOT_COLORS.length],
-                  fontWeight: 600,
-                  pointerEvents: 'none'
+                slot={slot}
+                isSelected={selectedSlotIds.includes(slot.id)}
+                onSelect={() => selectSlots([slot.id])}
+                onDragEnd={(x, y) => {
+                  updateSlot(slot.id, {
+                    bounds: { ...slot.bounds, x, y }
+                  })
                 }}
-              >
-                {slot.name} ({slot.type})
-              </div>
+                onTransformEnd={(x, y, width, height) => {
+                  updateSlot(slot.id, {
+                    bounds: { x, y, width, height }
+                  })
+                }}
+              />
             ))}
-          </div>
-        </div>
+          </Layer>
+        </Stage>
+      </div>
+    </div>
+  )
+}
 
-        {/* Slots */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <h3 style={{ color: 'var(--text-primary, #fff)', margin: 0, fontSize: 14 }}>Slots</h3>
-            <button onClick={addSlot} style={btnStyle}>+ Add Slot</button>
-          </div>
+function SlotListSidebar(): React.JSX.Element {
+  const component = useComponentStore((s) => s.currentComponent)
+  const selectedSlotIds = useComponentStore((s) => s.selectedSlotIds)
+  const selectSlots = useComponentStore((s) => s.selectSlots)
+  const removeSlot = useComponentStore((s) => s.removeSlot)
+  const addSlot = useComponentStore((s) => s.addSlot)
 
-          {slots.map((slot) => (
+  if (!component) return <div />
+
+  const handleAddSlot = (type: ComponentSlotType): void => {
+    addSlot({
+      name: `${SLOT_TYPE_LABELS[type]} ${component.slots.length + 1}`,
+      type,
+      bounds: { x: 5, y: 5, width: 20, height: 6 },
+      textStyle: type === 'text' || type === 'stat-label' || type === 'stat-value'
+        ? { fontSize: 3, fontFamily: 'Inter', fill: '#000000', align: 'left', verticalAlign: 'middle' }
+        : undefined
+    })
+  }
+
+  return (
+    <div style={{ width: 240, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+      <div className="panel-header">Slots</div>
+      <div style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>
+        <button
+          className="btn btn-sm"
+          style={{ width: '100%', marginBottom: 4 }}
+          onClick={() => handleAddSlot('text')}
+        >
+          + Text Slot
+        </button>
+        <button
+          className="btn btn-sm"
+          style={{ width: '100%', marginBottom: 4 }}
+          onClick={() => handleAddSlot('stat-label')}
+        >
+          + Stat Label
+        </button>
+        <button
+          className="btn btn-sm"
+          style={{ width: '100%', marginBottom: 4 }}
+          onClick={() => handleAddSlot('stat-value')}
+        >
+          + Stat Value
+        </button>
+        <button
+          className="btn btn-sm"
+          style={{ width: '100%', marginBottom: 4 }}
+          onClick={() => handleAddSlot('stat-bar-fill')}
+        >
+          + Stat Bar Fill
+        </button>
+        <button
+          className="btn btn-sm"
+          style={{ width: '100%' }}
+          onClick={() => handleAddSlot('image')}
+        >
+          + Image Slot
+        </button>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
+        {component.slots.length === 0 ? (
+          <div style={{ color: 'var(--text-muted)', fontSize: 11, textAlign: 'center', padding: 16 }}>
+            No slots yet. Click a button above to add one.
+          </div>
+        ) : (
+          component.slots.map((slot) => (
             <div
               key={slot.id}
               style={{
-                display: 'grid',
-                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr auto',
-                gap: 6,
-                marginBottom: 6,
-                alignItems: 'center'
+                padding: 8,
+                marginBottom: 4,
+                background: selectedSlotIds.includes(slot.id) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+                border: `1px solid ${selectedSlotIds.includes(slot.id) ? SLOT_TYPE_COLORS[slot.type] : 'var(--border)'}`,
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 11
               }}
+              onClick={() => selectSlots([slot.id])}
             >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 2,
+                      background: SLOT_TYPE_COLORS[slot.type]
+                    }}
+                  />
+                  <span style={{ fontWeight: 600 }}>{slot.name}</span>
+                </div>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: 2, fontSize: 10 }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeSlot(slot.id)
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+              <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2 }}>
+                {SLOT_TYPE_LABELS[slot.type]}
+                {slot.bindTo && ` • ${slot.bindTo}`}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SlotPropertiesSidebar(): React.JSX.Element {
+  const component = useComponentStore((s) => s.currentComponent)
+  const selectedSlotIds = useComponentStore((s) => s.selectedSlotIds)
+  const updateSlot = useComponentStore((s) => s.updateSlot)
+  const deck = useEditorStore((s) => s.currentDeck)
+
+  if (!component) return <div />
+
+  const selectedSlot = selectedSlotIds.length === 1
+    ? component.slots.find((sl) => sl.id === selectedSlotIds[0])
+    : undefined
+
+  if (!selectedSlot) {
+    return (
+      <div style={{ width: 280, borderLeft: '1px solid var(--border)' }}>
+        <div className="panel-header">Slot Properties</div>
+        <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 11 }}>
+          Select a slot to edit its properties
+        </div>
+      </div>
+    )
+  }
+
+  const update = (updates: Partial<ComponentSlot>): void => {
+    updateSlot(selectedSlot.id, updates)
+  }
+
+  return (
+    <div style={{ width: 280, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+      <div className="panel-header">Slot Properties</div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
+        <div className="form-group">
+          <label className="input-label">Name</label>
+          <input
+            className="input"
+            value={selectedSlot.name}
+            onChange={(e) => update({ name: e.target.value })}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="input-label">Type</label>
+          <select
+            className="input"
+            value={selectedSlot.type}
+            onChange={(e) => update({ type: e.target.value as ComponentSlotType })}
+          >
+            {Object.entries(SLOT_TYPE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label className="input-label">Data Binding</label>
+          <select
+            className="input"
+            value={selectedSlot.bindTo || '__none__'}
+            onChange={(e) => update({ bindTo: e.target.value === '__none__' ? undefined : e.target.value })}
+          >
+            <option value="__none__">None</option>
+            <option value="name">Card Name</option>
+            <option value="description">Description</option>
+            <option value="funFact">Fun Fact</option>
+            <option value="image">Card Image</option>
+            {deck?.categories.map((cat) => (
+              <React.Fragment key={cat.id}>
+                <option value={`stat:${cat.id}`}>{cat.name} (value)</option>
+                <option value={`stat-label:${cat.id}`}>{cat.name} (label)</option>
+              </React.Fragment>
+            ))}
+          </select>
+        </div>
+
+        {(selectedSlot.type === 'text' || selectedSlot.type === 'stat-label' || selectedSlot.type === 'stat-value') && (
+          <>
+            <div style={{ fontSize: 10, fontWeight: 600, marginTop: 16, marginBottom: 8, color: 'var(--text-muted)' }}>
+              TEXT STYLE
+            </div>
+            <div className="form-group">
+              <label className="input-label">Font Size (mm)</label>
               <input
-                style={inputStyle}
-                value={slot.name}
-                onChange={(e) => updateSlot(slot.id, { name: e.target.value })}
-                placeholder="Slot name"
+                className="input"
+                type="number"
+                value={selectedSlot.textStyle?.fontSize || 3}
+                onChange={(e) => update({
+                  textStyle: { ...selectedSlot.textStyle, fontSize: parseFloat(e.target.value) || 3 }
+                })}
               />
+            </div>
+            <div className="form-group">
+              <label className="input-label">Font Family</label>
+              <input
+                className="input"
+                value={selectedSlot.textStyle?.fontFamily || 'Inter'}
+                onChange={(e) => update({
+                  textStyle: { ...selectedSlot.textStyle, fontFamily: e.target.value }
+                })}
+              />
+            </div>
+            <div className="form-group">
+              <label className="input-label">Color</label>
+              <input
+                className="input"
+                type="color"
+                value={selectedSlot.textStyle?.fill || '#000000'}
+                onChange={(e) => update({
+                  textStyle: { ...selectedSlot.textStyle, fill: e.target.value }
+                })}
+              />
+            </div>
+            <div className="form-group">
+              <label className="input-label">Align</label>
               <select
-                style={inputStyle}
-                value={slot.type}
-                onChange={(e) => updateSlot(slot.id, { type: e.target.value as 'text' | 'image' | 'number' })}
+                className="input"
+                value={selectedSlot.textStyle?.align || 'left'}
+                onChange={(e) => update({
+                  textStyle: { ...selectedSlot.textStyle, align: e.target.value as 'left' | 'center' | 'right' }
+                })}
               >
-                <option value="text">Text</option>
-                <option value="image">Image</option>
-                <option value="number">Number</option>
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
               </select>
-              <input style={inputStyle} type="number" value={slot.bounds.x} onChange={(e) => updateSlotBounds(slot.id, 'x', Number(e.target.value))} title="X" />
-              <input style={inputStyle} type="number" value={slot.bounds.y} onChange={(e) => updateSlotBounds(slot.id, 'y', Number(e.target.value))} title="Y" />
-              <input style={inputStyle} type="number" value={slot.bounds.width} onChange={(e) => updateSlotBounds(slot.id, 'width', Number(e.target.value))} title="W" />
-              <input style={inputStyle} type="number" value={slot.bounds.height} onChange={(e) => updateSlotBounds(slot.id, 'height', Number(e.target.value))} title="H" />
-              <button onClick={() => removeSlot(slot.id)} style={{ ...closeBtnStyle, fontSize: 14 }}>✕</button>
             </div>
-          ))}
-        </div>
+          </>
+        )}
 
-        {/* PSD Import */}
-        <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg-secondary, #16213e)', borderRadius: 6 }}>
-          <h3 style={{ color: 'var(--text-primary, #fff)', margin: '0 0 8px', fontSize: 14 }}>Import from PSD</h3>
-          <input ref={fileInputRef} type="file" accept=".psd" style={{ display: 'none' }} onChange={handleFileChange} />
-          <button onClick={handlePsdImport} style={btnStyle}>Choose PSD File</button>
-
-          {psdLayers && (
-            <div style={{ marginTop: 12 }}>
-              <p style={{ color: 'var(--text-muted, #999)', fontSize: 12, marginBottom: 8 }}>
-                {psdSize?.width}×{psdSize?.height}px — {psdLayers.length} layers found. Map layers to slots:
-              </p>
-              {psdLayers.map((layer) => (
-                <PsdLayerMapping key={layer.name} layer={layer} onMap={handlePsdMapping} mappings={slotMappings} />
-              ))}
-              <button onClick={handleCreateFromPsd} style={{ ...btnStyle, marginTop: 8, background: '#4CAF50' }}>
-                Create Component from PSD
-              </button>
+        {selectedSlot.type === 'stat-bar-fill' && (
+          <>
+            <div style={{ fontSize: 10, fontWeight: 600, marginTop: 16, marginBottom: 8, color: 'var(--text-muted)' }}>
+              BAR SETTINGS
             </div>
-          )}
-        </div>
+            <div className="form-group">
+              <label className="input-label">Direction</label>
+              <select
+                className="input"
+                value={selectedSlot.barDirection || 'horizontal'}
+                onChange={(e) => update({ barDirection: e.target.value as 'horizontal' | 'vertical' })}
+              >
+                <option value="horizontal">Horizontal</option>
+                <option value="vertical">Vertical</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="input-label">Min Value</label>
+              <input
+                className="input"
+                type="number"
+                value={selectedSlot.minValue || 0}
+                onChange={(e) => update({ minValue: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="form-group">
+              <label className="input-label">Max Value</label>
+              <input
+                className="input"
+                type="number"
+                value={selectedSlot.maxValue || 100}
+                onChange={(e) => update({ maxValue: parseFloat(e.target.value) || 100 })}
+              />
+            </div>
+          </>
+        )}
 
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ ...btnStyle, background: '#555' }}>Cancel</button>
-          <button onClick={handleSave} style={{ ...btnStyle, background: '#2196F3' }}>Save Component</button>
+        {selectedSlot.type === 'image' && (
+          <>
+            <div style={{ fontSize: 10, fontWeight: 600, marginTop: 16, marginBottom: 8, color: 'var(--text-muted)' }}>
+              IMAGE SETTINGS
+            </div>
+            <div className="form-group">
+              <label className="input-label">Fit</label>
+              <select
+                className="input"
+                value={selectedSlot.imageFit || 'cover'}
+                onChange={(e) => update({ imageFit: e.target.value as 'cover' | 'contain' | 'fill' })}
+              >
+                <option value="cover">Cover</option>
+                <option value="contain">Contain</option>
+                <option value="fill">Fill</option>
+              </select>
+            </div>
+          </>
+        )}
+
+        <div style={{ fontSize: 10, fontWeight: 600, marginTop: 16, marginBottom: 8, color: 'var(--text-muted)' }}>
+          POSITION & SIZE
+        </div>
+        <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div className="form-group">
+            <label className="input-label">X (mm)</label>
+            <input
+              className="input"
+              type="number"
+              value={selectedSlot.bounds.x.toFixed(1)}
+              onChange={(e) => update({
+                bounds: { ...selectedSlot.bounds, x: parseFloat(e.target.value) || 0 }
+              })}
+            />
+          </div>
+          <div className="form-group">
+            <label className="input-label">Y (mm)</label>
+            <input
+              className="input"
+              type="number"
+              value={selectedSlot.bounds.y.toFixed(1)}
+              onChange={(e) => update({
+                bounds: { ...selectedSlot.bounds, y: parseFloat(e.target.value) || 0 }
+              })}
+            />
+          </div>
+        </div>
+        <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div className="form-group">
+            <label className="input-label">Width (mm)</label>
+            <input
+              className="input"
+              type="number"
+              value={selectedSlot.bounds.width.toFixed(1)}
+              onChange={(e) => update({
+                bounds: { ...selectedSlot.bounds, width: parseFloat(e.target.value) || 1 }
+              })}
+            />
+          </div>
+          <div className="form-group">
+            <label className="input-label">Height (mm)</label>
+            <input
+              className="input"
+              type="number"
+              value={selectedSlot.bounds.height.toFixed(1)}
+              onChange={(e) => update({
+                bounds: { ...selectedSlot.bounds, height: parseFloat(e.target.value) || 1 }
+              })}
+            />
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function PsdLayerMapping({
-  layer,
-  onMap,
-  mappings
-}: {
-  layer: PsdLayerInfo
-  onMap: (name: string, type: 'text' | 'image' | 'number', slotName: string) => void
-  mappings: Record<string, { type: 'text' | 'image' | 'number'; slotName: string }>
-}): React.JSX.Element {
-  const mapping = mappings[layer.name]
+function ComponentEditorToolbar(): React.JSX.Element {
+  const component = useComponentStore((s) => s.currentComponent)
+  const updateComponent = useComponentStore((s) => s.updateComponent)
+  const setBackgroundImage = useComponentStore((s) => s.setBackgroundImage)
+  const setDimensions = useComponentStore((s) => s.setDimensions)
+  const closeComponent = useComponentStore((s) => s.closeComponent)
+  const deck = useEditorStore((s) => s.currentDeck)
+
+  if (!component) return <div />
+
+  const handleLoadImage = (): void => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/jpeg,image/png,image/webp,image/svg+xml'
+    input.onchange = () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = () => {
+        setBackgroundImage(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+    input.click()
+  }
+
+  const handleSaveToLibrary = (): void => {
+    if (!deck) return
+    // Add component to deck's component library
+    const updatedComponents = [...deck.components]
+    const existingIndex = updatedComponents.findIndex((c) => c.id === component.id)
+    if (existingIndex >= 0) {
+      updatedComponents[existingIndex] = component
+    } else {
+      updatedComponents.push(component)
+    }
+    // TODO: Update deck in store
+    alert('Component saved to library!')
+    closeComponent()
+  }
+
   return (
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4, fontSize: 12 }}>
-      <span style={{ color: '#ccc', width: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {layer.hasText ? '📝' : layer.hasImage ? '🖼️' : '📦'} {layer.name}
-      </span>
-      <select
-        style={{ ...inputStyle, fontSize: 11, padding: '2px 4px' }}
-        value={mapping?.type ?? ''}
-        onChange={(e) => {
-          if (e.target.value) onMap(layer.name, e.target.value as any, mapping?.slotName ?? layer.name)
-        }}
-      >
-        <option value="">— skip —</option>
-        <option value="text">Text slot</option>
-        <option value="image">Image slot</option>
-        <option value="number">Number slot</option>
-      </select>
-      {mapping && (
+    <div
+      style={{
+        height: 56,
+        borderBottom: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 16px',
+        gap: 12
+      }}
+    >
+      <button className="btn btn-ghost btn-sm" onClick={closeComponent} title="Back to editor">
+        ← Back
+      </button>
+      <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
+      
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12 }}>
         <input
-          style={{ ...inputStyle, fontSize: 11, padding: '2px 4px', width: 100 }}
-          value={mapping.slotName}
-          onChange={(e) => onMap(layer.name, mapping.type, e.target.value)}
-          placeholder="Slot name"
+          className="input"
+          style={{ width: 200 }}
+          value={component.name}
+          onChange={(e) => updateComponent({ name: e.target.value })}
+          placeholder="Component Name"
         />
-      )}
+        <select
+          className="input"
+          style={{ width: 140 }}
+          value={component.category}
+          onChange={(e) => updateComponent({ category: e.target.value as any })}
+        >
+          <option value="stat-bar">Stat Bar</option>
+          <option value="title">Title</option>
+          <option value="image-frame">Image Frame</option>
+          <option value="badge">Badge</option>
+          <option value="decoration">Decoration</option>
+          <option value="custom">Custom</option>
+        </select>
+        
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <label className="input-label" style={{ fontSize: 10 }}>W:</label>
+          <input
+            className="input"
+            style={{ width: 50 }}
+            type="number"
+            value={component.width}
+            onChange={(e) => setDimensions(parseFloat(e.target.value) || 10, component.height)}
+          />
+          <label className="input-label" style={{ fontSize: 10 }}>H:</label>
+          <input
+            className="input"
+            style={{ width: 50 }}
+            type="number"
+            value={component.height}
+            onChange={(e) => setDimensions(component.width, parseFloat(e.target.value) || 10)}
+          />
+          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>mm</span>
+        </div>
+      </div>
+
+      <button className="btn btn-sm" onClick={handleLoadImage}>
+        🖼 Load Background
+      </button>
+      <button className="btn btn-sm btn-primary" onClick={handleSaveToLibrary}>
+        💾 Save to Library
+      </button>
     </div>
   )
 }
 
-const inputStyle: React.CSSProperties = {
-  background: 'var(--bg-tertiary, #0f3460)',
-  border: '1px solid var(--border, #333)',
-  borderRadius: 4,
-  color: 'var(--text-primary, #fff)',
-  padding: '4px 8px',
-  fontSize: 12,
-  width: '100%'
+function ComponentLibraryView(): React.JSX.Element {
+  const deck = useEditorStore((s) => s.currentDeck)
+  const createComponent = useComponentStore((s) => s.createComponent)
+  const loadComponent = useComponentStore((s) => s.loadComponent)
+  const [selectedCategory, setSelectedCategory] = useState<ComponentDefinition['category']>('stat-bar')
+
+  if (!deck) return <div />
+
+  const categories: { key: ComponentDefinition['category']; label: string; icon: string }[] = [
+    { key: 'stat-bar', label: 'Stat Bars', icon: '📊' },
+    { key: 'title', label: 'Titles', icon: '🏷️' },
+    { key: 'image-frame', label: 'Frames', icon: '🖼️' },
+    { key: 'badge', label: 'Badges', icon: '🏅' },
+    { key: 'decoration', label: 'Decorations', icon: '✨' },
+    { key: 'custom', label: 'Custom', icon: '🎨' }
+  ]
+
+  const components = deck.components.filter((c) => c.category === selectedCategory)
+
+  const handleNewComponent = (): void => {
+    createComponent(`New ${selectedCategory}`, selectedCategory)
+  }
+
+  const handleDeleteComponent = (id: string): void => {
+    if (!confirm('Delete this component?')) return
+    // TODO: Remove from deck.components
+    alert('Component deleted')
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header */}
+      <div style={{
+        height: 56,
+        borderBottom: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 16px',
+        justifyContent: 'space-between'
+      }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700 }}>🧩 Component Library</h2>
+        <button className="btn btn-primary btn-sm" onClick={handleNewComponent}>
+          + New Component
+        </button>
+      </div>
+
+      {/* Category tabs */}
+      <div style={{
+        display: 'flex',
+        gap: 4,
+        padding: 12,
+        borderBottom: '1px solid var(--border)',
+        flexWrap: 'wrap'
+      }}>
+        {categories.map((cat) => (
+          <button
+            key={cat.key}
+            className={`btn btn-sm ${selectedCategory === cat.key ? 'btn-active' : ''}`}
+            onClick={() => setSelectedCategory(cat.key)}
+          >
+            {cat.icon} {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Component grid */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+        {components.length === 0 ? (
+          <div style={{
+            textAlign: 'center',
+            color: 'var(--text-muted)',
+            padding: 40
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🌟</div>
+            <div style={{ fontSize: 13, marginBottom: 8 }}>No {selectedCategory} components yet</div>
+            <div style={{ fontSize: 11, marginBottom: 16 }}>
+              Create custom components with images + smart slots
+            </div>
+            <button className="btn btn-sm btn-primary" onClick={handleNewComponent}>
+              + Create First Component
+            </button>
+          </div>
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+            gap: 12
+          }}>
+            {components.map((comp) => (
+              <div
+                key={comp.id}
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  padding: 12,
+                  background: 'var(--bg-secondary)',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s'
+                }}
+                onClick={() => loadComponent(comp)}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--accent)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border)'
+                }}
+              >
+                {/* Thumbnail */}
+                <div style={{
+                  width: '100%',
+                  height: 100,
+                  background: comp.backgroundImage ? `url(${comp.backgroundImage}) center/cover` : 'var(--bg-tertiary)',
+                  borderRadius: 4,
+                  marginBottom: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text-muted)',
+                  fontSize: 24
+                }}>
+                  {!comp.backgroundImage && '🧩'}
+                </div>
+                
+                {/* Info */}
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                  {comp.name}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 8 }}>
+                  {comp.slots.length} slot{comp.slots.length !== 1 ? 's' : ''}
+                  {' • '}
+                  {comp.width}×{comp.height}mm
+                </div>
+                
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button
+                    className="btn btn-sm btn-ghost"
+                    style={{ flex: 1, fontSize: 10 }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      loadComponent(comp)
+                    }}
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    className="btn btn-sm btn-ghost"
+                    style={{ fontSize: 10 }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteComponent(comp.id)
+                    }}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
-const labelStyle: React.CSSProperties = {
-  color: 'var(--text-muted, #999)',
-  fontSize: 11,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4
-}
+export function ComponentEditor(): React.JSX.Element {
+  const component = useComponentStore((s) => s.currentComponent)
 
-const btnStyle: React.CSSProperties = {
-  background: 'var(--accent, #e94560)',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 4,
-  padding: '6px 12px',
-  fontSize: 12,
-  cursor: 'pointer',
-  fontWeight: 600
-}
+  if (!component) {
+    return <ComponentLibraryView />
+  }
 
-const closeBtnStyle: React.CSSProperties = {
-  background: 'none',
-  border: 'none',
-  color: 'var(--text-muted, #999)',
-  cursor: 'pointer',
-  fontSize: 18
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <ComponentEditorToolbar />
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <SlotListSidebar />
+        <ComponentCanvas />
+        <SlotPropertiesSidebar />
+      </div>
+    </div>
+  )
 }

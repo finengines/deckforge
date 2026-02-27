@@ -9,6 +9,7 @@ interface ToolbarProps {
 
 const views: { id: EditorView; label: string; icon: string }[] = [
   { id: 'design', label: 'Design', icon: '◆' },
+  { id: 'components', label: 'Components', icon: '🧩' },
   { id: 'data', label: 'Data', icon: '☰' },
   { id: 'score', label: 'Score', icon: '🎯' },
   { id: 'export', label: 'Export', icon: '⎙' },

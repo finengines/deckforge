@@ -4,6 +4,87 @@ import { useEditorStore } from '../../stores/editorStore'
 import { ColorPicker } from '../ColorPicker'
 import type { Layer, TextLayer, ShapeLayer, Fill, Stroke, Shadow } from '../../types'
 
+// Common system fonts + popular web fonts (Google Fonts compatible)
+const AVAILABLE_FONTS = [
+  // Sans-serif - Modern
+  'Inter',
+  'Roboto',
+  'Open Sans',
+  'Lato',
+  'Montserrat',
+  'Poppins',
+  'Raleway',
+  'Source Sans Pro',
+  'Nunito',
+  'Ubuntu',
+  'Rubik',
+  'Work Sans',
+  'DM Sans',
+  'Outfit',
+  'Space Grotesko',
+  'Manrope',
+  'Plus Jakarta Sans',
+  
+  // Sans-serif - Display/Headings
+  'Oswald',
+  'Bebas Neue',
+  'Anton',
+  'Barlow',
+  'Archivo',
+  'Quicksand',
+  'Exo 2',
+  'Orbitron',
+  'Audiowide',
+  
+  // Serif
+  'Playfair Display',
+  'Merriweather',
+  'Lora',
+  'PT Serif',
+  'Crimson Text',
+  'Libre Baskerville',
+  'Bitter',
+  'Cardo',
+  'Spectral',
+  'Georgia',
+  'Garamond',
+  'Times New Roman',
+  'Palatino Linotype',
+  'Bookman Old Style',
+  
+  // Monospace
+  'Fira Code',
+  'JetBrains Mono',
+  'Roboto Mono',
+  'Source Code Pro',
+  'Space Mono',
+  'Courier New',
+  'Lucida Console',
+  
+  // Display/Decorative
+  'Righteous',
+  'Pacifico',
+  'Bangers',
+  'Lobster',
+  'Press Start 2P',
+  'Fredoka One',
+  'Permanent Marker',
+  'Special Elite',
+  
+  // System fallbacks
+  'system-ui',
+  'Arial',
+  'Verdana',
+  'Trebuchet MS',
+  'Tahoma',
+  'Segoe UI',
+  'Helvetica Neue',
+  'Gill Sans',
+  'Futura',
+  'Impact',
+  'Comic Sans MS'
+]
+
 function PropSection({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }): React.JSX.Element {
   const [open, setOpen] = useState(defaultOpen)
   return (
@@ -581,21 +662,31 @@ function TextProperties({
         <label className="input-label">Font</label>
         <select
           className="input"
-          value={layer.fontFamily}
-          onChange={(e) => onUpdate({ fontFamily: e.target.value })}
+          value={AVAILABLE_FONTS.includes(layer.fontFamily) ? layer.fontFamily : '__custom__'}
+          onChange={(e) => {
+            if (e.target.value !== '__custom__') {
+              onUpdate({ fontFamily: e.target.value })
+            }
+          }}
         >
-          {[
-            'Inter', 'Roboto', 'Playfair Display', 'Fira Code', 'system-ui',
-            'Georgia', 'Courier New', 'Arial', 'Trebuchet MS', 'Verdana',
-            'Impact', 'Comic Sans MS', 'Palatino Linotype', 'Times New Roman',
-            'Lucida Console', 'Tahoma', 'Segoe UI', 'Gill Sans', 'Futura',
-            'Garamond', 'Bookman Old Style'
-          ].map((f) => (
+          {AVAILABLE_FONTS.map((f) => (
             <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
           ))}
-          <option value={layer.fontFamily}>{layer.fontFamily} (current)</option>
+          <option value="__custom__">Custom font...</option>
         </select>
       </div>
+      {!AVAILABLE_FONTS.includes(layer.fontFamily) && (
+        <div className="form-group">
+          <label className="input-label">Custom Font Name</label>
+          <input
+            className="input"
+            type="text"
+            value={layer.fontFamily}
+            onChange={(e) => onUpdate({ fontFamily: e.target.value })}
+            placeholder="e.g., MyCustomFont"
+          />
+        </div>
+      )}
       <div className="form-group">
         <div className="form-row">
           <div style={{ flex: 1 }}>
