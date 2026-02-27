@@ -315,6 +315,8 @@ export interface EditorState {
   editingSide: 'front' | 'back'
   /** Selected layer IDs */
   selectedLayerIds: string[]
+  /** Last selected layer (for persistent properties panel) */
+  lastSelectedLayerId: string | null
   /** Zoom level (1 = 100%) */
   zoom: number
   /** Canvas pan offset */

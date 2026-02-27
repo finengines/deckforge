@@ -20,6 +20,7 @@ export const PropertiesPanel = React.memo(function PropertiesPanel(): React.JSX.
   const deck = useEditorStore((s) => s.currentDeck)
   const editingSide = useEditorStore((s) => s.editingSide)
   const selectedLayerIds = useEditorStore((s) => s.selectedLayerIds)
+  const lastSelectedLayerId = useEditorStore((s) => s.lastSelectedLayerId)
   const updateLayer = useEditorStore((s) => s.updateLayer)
 
   if (!deck) return <div className="panel" />
@@ -41,7 +42,11 @@ export const PropertiesPanel = React.memo(function PropertiesPanel(): React.JSX.
   }
 
   const selectedLayer =
-    selectedLayerIds.length === 1 ? findLayer(allLayers, selectedLayerIds[0]) : undefined
+    selectedLayerIds.length === 1
+      ? findLayer(allLayers, selectedLayerIds[0])
+      : lastSelectedLayerId
+        ? findLayer(allLayers, lastSelectedLayerId)
+        : undefined
 
   if (!selectedLayer) {
     return (

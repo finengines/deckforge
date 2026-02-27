@@ -113,6 +113,7 @@ export const useEditorStore = create<EditorStore>()(
       selectedCardId: null,
       editingSide: 'front' as const,
       selectedLayerIds: [],
+      lastSelectedLayerId: null,
       zoom: 1,
       panOffset: { x: 0, y: 0 },
       snapToGrid: true,
@@ -150,6 +151,7 @@ export const useEditorStore = create<EditorStore>()(
           }
           s.selectedCardId = null
           s.selectedLayerIds = []
+          s.lastSelectedLayerId = null
         }),
 
       loadDeck: (deck) =>
@@ -157,6 +159,7 @@ export const useEditorStore = create<EditorStore>()(
           s.currentDeck = deck
           s.selectedCardId = deck.cards[0]?.id ?? null
           s.selectedLayerIds = []
+          s.lastSelectedLayerId = null
         }),
 
       closeDeck: () =>
@@ -164,6 +167,7 @@ export const useEditorStore = create<EditorStore>()(
           s.currentDeck = null
           s.selectedCardId = null
           s.selectedLayerIds = []
+          s.lastSelectedLayerId = null
         }),
 
       updateDeckName: (name) =>
@@ -364,6 +368,7 @@ export const useEditorStore = create<EditorStore>()(
       selectLayers: (ids) =>
         set((s) => {
           s.selectedLayerIds = ids
+          if (ids.length > 0) s.lastSelectedLayerId = ids[0]
         }),
 
       reorderLayers: (ids) =>
